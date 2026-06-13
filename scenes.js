@@ -10,22 +10,52 @@ const SCENES = {
     props: [],
     hotspots: [
       {
-        id: "apartment_window",
-        label: "Apartment Window",
-        x: 24, y: 6, width: 20, height: 29,
+        id: "apartment_entrance",
+        label: "Brita's Apartment",
+        x: 64, y: 38, width: 7, height: 23,
         action: {
-          type: "dialogue",
-          speaker: "You",
-          text: "The light is on up there. Someone is home. Or maybe they just want it to look that way."
+          type: "scene",
+          target: "living_room"
         }
       },
       {
-         id: "apartment_entrance",
-         label: "Brita's Apartment",
-         x: 45, y: 38, width: 5, height: 23,
-         action: {
-          type: "scene",
-          target: "living_room"
+        id: "cafe_entrance",
+        label: "Mamma Cale's",
+        x: 41, y: 47, width: 11, height: 28,
+        action: {
+          type: "dialogue",
+          speaker: "You",
+          text: "Mamma Cale's. Still open. I can see figures inside through the window."
+        }
+      },
+      {
+        id: "back_alley",
+        label: "Back Alley",
+        x: 18, y: 51, width: 4, height: 35,
+        action: {
+          type: "dialogue",
+          speaker: "You",
+          text: "A narrow passage between the buildings. Dark. Smells like last week."
+        }
+      },
+      {
+        id: "camping_wagon",
+        label: "Up on the Hill",
+        x: 7, y: 5, width: 6, height: 15,
+        action: {
+          type: "dialogue",
+          speaker: "You",
+          text: "Up on the hill. That's where I came from. No reason to go back yet."
+        }
+      },
+      {
+        id: "theatre_door",
+        label: "Theatre Door",
+        x: 6, y: 55, width: 12, height: 35,
+        action: {
+          type: "dialogue",
+          speaker: "You",
+          text: "Locked. The keyhole looks like it belongs to something specific. I don't have it yet."
         }
       }
     ]
@@ -89,4 +119,3 @@ const SCENES = {
   }
 
 };
- 
