@@ -20,14 +20,14 @@ const SCENES = {
         }
       },
       {
-        id: "apartment_entrance",
-        label: "Brita's Apartment",
-        x: 70, y: 40, width: 6, height: 22,
-        action: {
-          type: "scene",
-          target: "living_room"
-        }
-      }
+  id: "apartment_entrance",
+  label: "Brita's Apartment",
+  x: 45, y: 38, width: 5, height: 23,
+  action: {
+    type: "scene",
+    target: "living_room"
+  }
+}
     ]
   },
 
