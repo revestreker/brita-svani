@@ -1,0 +1,5 @@
+.cache/
+*.bin
+*.blend1
+_dev/
+.DS_Store
