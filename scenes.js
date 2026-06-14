@@ -22,7 +22,7 @@ const SCENES = {
       {
         id: "cafe_entrance",
         label: "Mamma Cale's",
-        x: 41, y: 47, width: 11, height: 28,
+        x: 51, y: 48, width: 10, height: 31,
         action: { type: "scene", target: "cafe" }
       },
       {
@@ -66,13 +66,13 @@ const SCENES = {
       {
         id: "big_window",
         label: "Back to the Street",
-        x: 37, y: 23, width: 49, height: 49,
+        x: 38, y: 22, width: 41, height: 50,
         action: { type: "scene", target: "exterior" }
       },
       {
         id: "table",
         label: "Coffee Table",
-        x: 43, y: 72, width: 21, height: 9,
+        x: 45, y: 72, width: 18, height: 15,
         action: {
           type: "dialogue",
           speaker: "You",
@@ -95,7 +95,7 @@ const SCENES = {
       {
         id: "cat_portrait",
         label: "Cat Portrait",
-        x: 28.5, y: 22, width: 8, height: 18,
+        x: 29, y: 22, width: 7, height: 18,
         action: { type: "lightbox", image: "assets/ui/cat_portrait.png" }
       }
     ]
@@ -136,7 +136,7 @@ const SCENES = {
       {
         id: "drunk_man",
         label: "Man at the Bar",
-        x: 36, y: 28, width: 12, height: 48,
+        x: 40, y: 37, width: 13, height: 31,
         action: {
           type: "dialogue",
           speaker: "Drunk Man",
@@ -152,7 +152,7 @@ const SCENES = {
       {
         id: "brita_friends",
         label: "Talk to Brita's Friends",
-        x: 58, y: 30, width: 30, height: 45,
+        x: 72, y: 39, width: 14, height: 34,
         action: { type: "scene", target: "ladies" }
       }
     ]
@@ -250,13 +250,13 @@ const SCENES = {
       {
         id: "alley_exit",
         label: "Back to the Street",
-        x: 0, y: 30, width: 12, height: 60,
+        x: 27, y: 16, width: 13, height: 61,
         action: { type: "scene", target: "exterior" }
       },
       {
         id: "theatre_backdoor",
         label: "Theatre Backdoor",
-        x: 30, y: 20, width: 25, height: 65,
+        x: 40, y: 49, width: 6, height: 38,
         action: { type: "scene", target: "wardrobe" }
       }
     ]
@@ -272,13 +272,13 @@ const SCENES = {
       {
         id: "wardrobe_exit",
         label: "Back Outside",
-        x: 0, y: 0, width: 8, height: 100,
+        x: 2, y: 12, width: 11, height: 79,
         action: { type: "scene", target: "alley" }
       },
       {
         id: "mirror",
         label: "Dressing Mirror",
-        x: 18, y: 12, width: 28, height: 65,
+        x: 25, y: 20, width: 17, height: 32,
         action: {
           type: "dialogue",
           speaker: "You",
@@ -288,7 +288,7 @@ const SCENES = {
       {
         id: "wardrobe_cabinet",
         label: "Costume Cabinet",
-        x: 60, y: 10, width: 28, height: 72,
+        x: 54, y: 54, width: 24, height: 39,
         action: {
           type: "dialogue",
           speaker: "You",
