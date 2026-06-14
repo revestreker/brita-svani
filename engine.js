@@ -120,6 +120,16 @@ function loadScene(sceneId) {
     bg.onload = null;
     STATE.panX = 0;
     STATE.panTarget = 0;
+    // Reset layers that pan scenes stretch/shift
+    const hl = document.getElementById("hotspot-layer");
+    const pl = document.getElementById("prop-layer");
+    hl.style.transform = "";
+    hl.style.width = "100%";
+    hl.style.height = "100%";
+    hl.style.left = "0";
+    pl.style.transform = "";
+    pl.style.width = "100%";
+    pl.style.height = "100%";
     renderHotspots(scene);
   }
 
@@ -154,13 +164,13 @@ function getMaxPan() {
 }
 
 function applyPan() {
+  if (!STATE.panScene) return;
   const tx = -Math.round(STATE.panX);
   const bg = document.getElementById("background");
   const propLayer = document.getElementById("prop-layer");
   const hotspotLayer = document.getElementById("hotspot-layer");
   bg.style.transform = `translateX(${tx}px)`;
   propLayer.style.transform = `translateX(${tx}px)`;
-  // Hotspot layer is full image width — pan it the same amount
   hotspotLayer.style.transform = `translateX(${tx}px)`;
 }
 
