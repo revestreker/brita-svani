@@ -16,7 +16,7 @@ const SCENES = {
       {
         id: "apartment_entrance",
         label: "Brita's Apartment",
-        x: 64, y: 38, width: 7, height: 23,
+        x: 70, y: 38, width: 6, height: 23,
         action: { type: "scene", target: "living_room" }
       },
       {
@@ -168,13 +168,13 @@ const SCENES = {
       {
         id: "ladies_exit",
         label: "Back to the Café",
-        x: 0, y: 0, width: 10, height: 100,
+        x: 0, y: 16, width: 8, height: 69,
         action: { type: "scene", target: "cafe" }
       },
       {
         id: "lady_left",
         label: "Talk",
-        x: 10, y: 8, width: 22, height: 75,
+        x: 14, y: 17, width: 15, height: 64,
         action: {
           type: "dialogue",
           speaker: "Brita's Friend",
@@ -184,7 +184,7 @@ const SCENES = {
       {
         id: "lady_centre",
         label: "Talk",
-        x: 38, y: 5, width: 25, height: 75,
+        x: 36, y: 13, width: 16, height: 61,
         action: {
           type: "dialogue",
           speaker: "Brita's Friend",
@@ -194,7 +194,7 @@ const SCENES = {
       {
         id: "lady_right",
         label: "Talk",
-        x: 72, y: 8, width: 22, height: 75,
+        x: 70, y: 10, width: 17, height: 70,
         action: {
           type: "dialogue",
           speaker: "Brita's Friend",
