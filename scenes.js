@@ -1,6 +1,11 @@
 // scenes.js — The Mystery of Brita Svani
+// THIS is your content file. engine.js handles all logic — never touch that.
+// To swap a background later: just replace the image file in assets/backgrounds/
+// keeping the same filename. No code changes needed.
+
 const SCENES = {
 
+  // ── THE STREET (starting scene, pan left/right) ───────────────────────────
   exterior: {
     id: "exterior",
     name: "The Street",
@@ -23,9 +28,8 @@ const SCENES = {
         label: "Mamma Cale's",
         x: 41, y: 47, width: 11, height: 28,
         action: {
-          type: "dialogue",
-          speaker: "You",
-          text: "Mamma Cale's. Still open. I can see figures inside through the window."
+          type: "scene",
+          target: "cafe"
         }
       },
       {
@@ -33,9 +37,8 @@ const SCENES = {
         label: "Back Alley",
         x: 18, y: 51, width: 4, height: 35,
         action: {
-          type: "dialogue",
-          speaker: "You",
-          text: "A narrow passage between the buildings. Dark. Smells like last week."
+          type: "scene",
+          target: "alley"
         }
       },
       {
@@ -43,9 +46,8 @@ const SCENES = {
         label: "Up on the Hill",
         x: 7, y: 5, width: 6, height: 15,
         action: {
-          type: "dialogue",
-          speaker: "You",
-          text: "Up on the hill. That's where I came from. No reason to go back yet."
+          type: "scene",
+          target: "cabin"
         }
       },
       {
@@ -61,22 +63,24 @@ const SCENES = {
     ]
   },
 
+  // ── BRITA'S LIVING ROOM ───────────────────────────────────────────────────
+  // Background: assets/backgrounds/living_room.jpg
+  // To update: replace that file, keep the same name.
   living_room: {
     id: "living_room",
-    name: "Brita's Living Room",
+    name: "Brita's Apartment",
     background: "assets/backgrounds/living_room.jpg",
     props: [
       {
         id: "bottle_prop",
         image: "assets/props/bottle.png",
-        x: 13, y: 62,
-        width: 3, height: 15
+        x: 13, y: 62, width: 3, height: 15
       }
     ],
     hotspots: [
       {
         id: "big_window",
-        label: "Back Outside",
+        label: "Back to the Street",
         x: 37, y: 23, width: 49, height: 49,
         action: {
           type: "scene",
@@ -85,12 +89,12 @@ const SCENES = {
       },
       {
         id: "table",
-        label: "Left overs",
+        label: "Coffee Table",
         x: 43, y: 72, width: 21, height: 9,
         action: {
           type: "dialogue",
           speaker: "You",
-          text: "Looks like someone left in a hurry."
+          text: "Two glasses. One with a lipstick mark. The candles burned down to nothing. Someone was here with her."
         }
       },
       {
@@ -116,6 +120,119 @@ const SCENES = {
         }
       }
     ]
+  },
+
+  // ── MAMMA CALE'S CAFÉ ────────────────────────────────────────────────────
+  // Background: assets/backgrounds/cafe.jpg
+  cafe: {
+    id: "cafe",
+    name: "Mamma Cale's",
+    background: "assets/backgrounds/cafe.jpg",
+    props: [],
+    hotspots: [
+      {
+        id: "cafe_exit",
+        label: "Back to the Street",
+        x: 0, y: 0, width: 8, height: 100,
+        action: {
+          type: "scene",
+          target: "exterior"
+        }
+      },
+      {
+        id: "bartender",
+        label: "Bartender",
+        x: 10, y: 18, width: 12, height: 55,
+        action: {
+          type: "dialogue",
+          speaker: "Bartender",
+          text: "We're closing soon. You want something or are you just here to stand there?"
+        }
+      },
+      {
+        id: "drunk_man",
+        label: "Man at the Bar",
+        x: 36, y: 28, width: 12, height: 48,
+        action: {
+          type: "dialogue",
+          speaker: "Drunk Man",
+          text: "He's mumbling into his glass. I can't make out a word. Maybe if I had a drink myself."
+        }
+      },
+      {
+        id: "brita_friends",
+        label: "Women at the Table",
+        x: 58, y: 30, width: 30, height: 45,
+        action: {
+          type: "dialogue",
+          speaker: "Brita's Friend",
+          text: "We haven't seen her since closing night. She left early — or we thought she did. Her apartment is on the fourth floor. Maybe start there."
+        }
+      }
+    ]
+  },
+
+  // ── BACK ALLEY ───────────────────────────────────────────────────────────
+  // Background: assets/backgrounds/alley.jpg
+  alley: {
+    id: "alley",
+    name: "The Back Alley",
+    background: "assets/backgrounds/alley.jpg",
+    props: [],
+    hotspots: [
+      {
+        id: "alley_exit",
+        label: "Back to the Street",
+        x: 0, y: 0, width: 15, height: 100,
+        action: {
+          type: "scene",
+          target: "exterior"
+        }
+      },
+      {
+        id: "theatre_backdoor",
+        label: "Theatre Backdoor",
+        x: 30, y: 20, width: 25, height: 65,
+        action: {
+          type: "dialogue",
+          speaker: "You",
+          text: "A heavy door. There's a lock — old brass, well-used. I need the right key."
+        }
+      }
+    ]
+  },
+
+  // ── DETECTIVE'S CABIN (title screen scene) ────────────────────────────────
+  // Background: assets/backgrounds/start_frame.png
+  cabin: {
+    id: "cabin",
+    name: "The Hill",
+    background: "assets/backgrounds/start_frame.png",
+    props: [],
+    hotspots: [
+      {
+        id: "cabin_exit",
+        label: "Back to the Street",
+        x: 40, y: 60, width: 20, height: 30,
+        action: {
+          type: "scene",
+          target: "exterior"
+        }
+      }
+    ]
   }
+
+  // ── HOW TO ADD A NEW SCENE ───────────────────────────────────────────────
+  // 1. Put your background in assets/backgrounds/ with a clean name (no spaces)
+  // 2. Copy a scene block below and fill it in
+  // 3. Add a hotspot in another scene pointing to it with type: "scene"
+  //
+  // ,new_scene: {
+  //   id: "new_scene",
+  //   name: "Scene Name",
+  //   background: "assets/backgrounds/filename.jpg",
+  //   props: [],
+  //   hotspots: []
+  // }
 
 };
