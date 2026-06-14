@@ -6,270 +6,269 @@
 <title>The Mystery of Brita Svani</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { background: #0d0b08; font-family: 'Georgia', serif; overflow: hidden; width: 100vw; height: 100vh; }
+  body { background: #1a1814; font-family: 'Georgia', serif; overflow: hidden; width: 100vw; height: 100vh; }
 
   #game-container { width: 100vw; height: 100vh; position: relative; overflow: hidden; cursor: none; }
-  #background { width: 100%; height: 100%; object-fit: cover; object-position: center; display: block; }
 
-  /* Prop layer sits between background and hotspots */
+  /* Custom cursor — your drawn hand */
+  #custom-cursor {
+    position: fixed;
+    width: 32px; height: 32px;
+    pointer-events: none;
+    z-index: 9999;
+    transform: translate(-4px, -4px); /* offset so tip of cursor aligns with click point */
+  }
+
+  #background {
+    height: 100%;
+    display: block;
+    /* width and object-fit set dynamically by engine for pan vs static scenes */
+  }
+
   #prop-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
-
   #hotspot-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
 
   .hotspot { position: absolute; cursor: none; border-radius: 4px; transition: background 0.15s; }
-  .hotspot:hover { background: rgba(255,220,150,0.10); }
+.hotspot:hover { background: radial-gradient(ellipse at center, rgba(255,220,120,0.22) 0%, rgba(255,200,80,0.06) 60%, transparent 100%); }
+
+#game-container:has(.hotspot:hover) #custom-cursor {
+  content: url('assets/cursors/cursor_hover.png');
+}
   .hotspot.debug { border: 2px dashed rgba(255,200,80,0.7); background: rgba(255,200,80,0.06); }
   .hotspot.debug:hover { background: rgba(255,200,80,0.2); }
-
   .hotspot-label {
-    display: none; position: absolute; bottom: calc(100% + 6px); left: 50%; transform: translateX(-50%);
-    background: rgba(10,8,5,0.9); border: 1px solid rgba(200,170,100,0.4); color: rgba(220,205,175,0.95);
-    font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; padding: 5px 12px;
-    border-radius: 3px; white-space: nowrap; pointer-events: none;
+    display: none; position: absolute; bottom: calc(100% + 8px); left: 50%; transform: translateX(-50%);
+    background: rgba(235,228,210,0.94); border: none; color: rgba(40,28,14,0.85);
+    font-size: 13px; font-style: italic; letter-spacing: 0.03em; padding: 6px 16px;
+    border-radius: 20px; white-space: nowrap; pointer-events: none;
+    font-family: 'Georgia', serif;
+    box-shadow: 2px 3px 0px rgba(0,0,0,0.2);
+    filter: url(#wobble);
   }
   .hotspot:hover .hotspot-label { display: block; }
 
-  /* ── TOP BAR ── */
-  #top-bar {
-    position: absolute; top: 0; left: 0; right: 0; height: 44px;
-    background: rgba(8,6,4,0.82); border-bottom: 1px solid rgba(200,170,100,0.18);
-    display: none; align-items: center; justify-content: space-between; padding: 0 20px; z-index: 80;
+  /* Pan hint arrows */
+  #pan-hint-left, #pan-hint-right {
+    position: absolute; top: 50%; transform: translateY(-50%);
+    font-size: 11px; letter-spacing: 0.14em; color: rgba(200,170,90,0.3);
+    font-family: 'Georgia', serif; font-style: italic;
+    pointer-events: none; z-index: 10;
+    transition: opacity 0.3s;
   }
-  #game-title-bar { font-size: 11px; letter-spacing: 0.2em; text-transform: uppercase; color: rgba(200,170,90,0.5); font-style: italic; }
-  #top-bar-right { display: flex; align-items: center; gap: 10px; }
+  #pan-hint-left  { left: 18px; }
+  #pan-hint-right { right: 18px; }
+  #pan-hint-left.hidden, #pan-hint-right.hidden { opacity: 0; }
 
-  .top-btn {
-    font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(200,170,90,0.75);
-    border: 1px solid rgba(200,170,100,0.3); background: transparent; padding: 5px 14px;
-    border-radius: 3px; font-family: 'Georgia', serif; cursor: none; transition: all 0.15s;
-  }
-  .top-btn:hover { background: rgba(200,170,90,0.12); border-color: rgba(200,170,100,0.65); color: rgba(200,170,90,1); }
-
-  .icon-btn {
-    width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;
-    border: 1px solid rgba(200,170,100,0.3); border-radius: 3px; background: transparent;
-    cursor: none; transition: all 0.15s; position: relative; flex-shrink: 0;
-  }
-  .icon-btn:hover { background: rgba(200,170,90,0.12); border-color: rgba(200,170,100,0.65); }
-  .icon-btn svg { width: 16px; height: 16px; }
-
-  /* ── SETTINGS PANEL ── */
-  #settings-panel {
-    position: absolute; top: 52px; right: 16px; background: rgba(10,8,5,0.95);
-    border: 1px solid rgba(200,170,100,0.35); border-radius: 5px; padding: 20px 22px;
-    z-index: 200; display: none; min-width: 230px;
-  }
-  #settings-panel h3 { font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase; color: rgba(200,170,90,0.6); margin-bottom: 18px; }
-  .settings-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; gap: 12px; }
-  .settings-label { font-size: 12px; color: rgba(220,205,175,0.75); letter-spacing: 0.06em; white-space: nowrap; }
-  #music-toggle-btn {
-    font-size: 11px; letter-spacing: 0.1em; color: rgba(200,170,90,0.85);
-    border: 1px solid rgba(200,170,100,0.35); background: transparent; padding: 4px 12px;
-    border-radius: 3px; font-family: 'Georgia', serif; cursor: none; transition: all 0.15s; min-width: 90px; text-align: center;
-  }
-  #music-toggle-btn:hover { background: rgba(200,170,90,0.12); }
-  #volume-slider { flex: 1; accent-color: rgba(200,170,90,0.9); cursor: none; }
-  #volume-readout { font-size: 11px; color: rgba(200,170,90,0.7); min-width: 36px; text-align: right; font-family: monospace; }
-
-  /* ── INVENTORY BUTTON ── */
-  #inventory-btn {
-    position: absolute; bottom: 20px; right: 20px; width: 48px; height: 48px;
-    background: rgba(10,8,5,0.88); border: 1px solid rgba(200,170,100,0.4); border-radius: 5px;
-    display: none; align-items: center; justify-content: center; z-index: 60; cursor: none; transition: all 0.15s;
-  }
-  #inventory-btn:hover { background: rgba(200,170,90,0.14); border-color: rgba(200,170,100,0.75); }
-  #inventory-btn svg { width: 26px; height: 26px; }
-  #inv-count {
-    position: absolute; top: -6px; right: -6px; width: 16px; height: 16px;
-    background: rgba(200,170,90,0.9); border-radius: 50%; font-size: 10px; color: #0a0704;
-    display: none; align-items: center; justify-content: center; font-family: 'Georgia', serif; font-weight: bold; pointer-events: none;
-  }
-
-  /* ── INVENTORY PANEL ── */
-  #inventory-panel {
-    position: absolute; bottom: 78px; right: 16px; width: 280px;
-    background: rgba(10,8,5,0.94); border: 1px solid rgba(200,170,100,0.35); border-radius: 5px;
-    padding: 16px 16px 12px; z-index: 59; display: none;
-    transform: translateY(12px); opacity: 0; transition: transform 0.22s ease, opacity 0.22s ease;
-  }
-  #inventory-panel.open { transform: translateY(0); opacity: 1; }
-  #inventory-panel-title { font-size: 9px; letter-spacing: 0.22em; text-transform: uppercase; color: rgba(200,170,90,0.45); margin-bottom: 14px; }
-  #inventory-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
-  .inv-slot {
-    width: 100%; aspect-ratio: 1; border: 1px solid rgba(200,170,100,0.22); border-radius: 4px;
-    background: rgba(255,255,255,0.03); display: flex; align-items: center; justify-content: center;
-    cursor: none; transition: all 0.15s; position: relative;
-  }
-  .inv-slot.filled { border-color: rgba(200,170,100,0.5); background: rgba(255,220,150,0.06); }
-  .inv-slot.filled:hover { background: rgba(255,220,150,0.13); border-color: rgba(200,170,100,0.85); }
-  .inv-slot svg { width: 22px; height: 22px; }
-  .inv-tooltip {
-    position: absolute; bottom: calc(100% + 6px); left: 50%; transform: translateX(-50%);
-    background: rgba(10,8,5,0.95); border: 1px solid rgba(200,170,100,0.35); padding: 5px 10px;
-    border-radius: 3px; font-size: 11px; color: rgba(232,222,205,0.9); white-space: nowrap;
-    display: none; pointer-events: none; letter-spacing: 0.06em; z-index: 200;
-  }
-  .inv-slot:hover .inv-tooltip { display: block; }
-
-  /* ── LIGHTBOX ── */
-  #lightbox {
-    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-    background: rgba(10,8,5,0.15); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
-    display: none; align-items: center; justify-content: center;
-    z-index: 150; cursor: none;
-    opacity: 0; transition: opacity 0.28s ease;
-  }
-  #lightbox.open { opacity: 1; }
-  #lightbox-inner {
-    position: relative; max-width: 72vw; max-height: 82vh;
-    display: flex; align-items: center; justify-content: center;
-  }
-  #lightbox-img {
-    max-width: 100%; max-height: 82vh;
-    object-fit: contain; display: block;
-    border-radius: 3px;
-  }
-  /* SVG pupil overlay positioned absolutely over lightbox image */
-  #lightbox-pupils {
-    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-    pointer-events: none; display: none;
-  }
-  #lightbox-close {
-    position: absolute; top: -36px; right: 0;
-    font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase;
-    color: rgba(200,170,90,0.55); font-family: 'Georgia', serif;
-    cursor: none;
-  }
-  #lightbox-hint {
-    position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
-    font-size: 10px; letter-spacing: 0.14em; color: rgba(200,170,90,0.35);
-    font-family: 'Georgia', serif; font-style: italic; pointer-events: none;
-  }
-
-  /* ── DIALOGUE ── */
-  #dialogue-box {
-    position: absolute; bottom: 80px; left: 50%; transform: translateX(-50%);
-    width: 64%; max-width: 720px; background: rgba(12,9,5,0.92);
-    border: 1px solid rgba(200,170,100,0.35); border-radius: 5px;
-    padding: 22px 30px 18px; display: none; z-index: 100;
-  }
-  #dialogue-speaker { font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase; color: rgba(200,170,90,0.85); margin-bottom: 10px; }
-  #dialogue-text { font-size: 16px; line-height: 1.7; color: rgba(232,222,205,0.96); font-style: italic; }
-  #dialogue-continue { font-size: 10px; color: rgba(200,170,90,0.5); text-align: right; margin-top: 12px; letter-spacing: 0.1em; animation: blink 1.5s infinite; }
-  @keyframes blink { 0%,100%{opacity:0.3} 50%{opacity:1} }
+  /* ── SVG FILTERS ── */
+  #svg-filters { position: absolute; width: 0; height: 0; overflow: hidden; }
 
   /* ── TITLE SCREEN ── */
   #title-screen {
-    position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: #0a0704;
-    display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 200; cursor: none;
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    display: flex; flex-direction: column; align-items: flex-start; justify-content: center;
+    z-index: 200; cursor: none; padding-left: 20%;
   }
-  #title-eyebrow { font-size: 11px; letter-spacing: 0.28em; text-transform: uppercase; color: rgba(200,170,90,0.55); margin-bottom: 22px; }
-  #title-main { font-size: clamp(32px, 5vw, 64px); color: rgba(232,222,205,0.96); font-style: italic; text-align: center; line-height: 1.2; margin-bottom: 14px; }
-  #title-of { font-size: clamp(14px, 2vw, 20px); color: rgba(200,170,90,0.7); margin-bottom: 8px; letter-spacing: 0.06em; }
-  #title-name { font-size: clamp(28px, 4.5vw, 58px); color: rgba(232,222,205,0.96); font-style: italic; text-align: center; margin-bottom: 70px; }
-  #start-btn {
-    font-size: 11px; letter-spacing: 0.22em; text-transform: uppercase; color: rgba(200,170,90,0.85);
-    border: 1px solid rgba(200,170,100,0.4); padding: 13px 40px; background: transparent;
-    font-family: 'Georgia', serif; cursor: none; transition: all 0.2s;
+  #title-bg {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    object-fit: cover; object-position: center; z-index: 0;
   }
-  #start-btn:hover { background: rgba(200,170,90,0.1); border-color: rgba(200,170,100,0.75); color: rgba(200,170,90,1); }
+  #title-content {
+    position: relative; z-index: 1;
+    display: flex; flex-direction: column; gap: 18px;
+    margin-top: 28%;
+  }
+  .menu-btn {
+    background: rgba(235,228,210,0.92); border: none;
+    padding: 13px 40px 13px 28px; cursor: none;
+    font-family: 'Georgia', serif; font-size: clamp(16px, 2vw, 26px); font-style: italic;
+    color: #1a1510; letter-spacing: 0.02em;
+    transition: transform 0.12s ease, background 0.12s ease;
+    filter: url(#wobble);
+    box-shadow: 3px 4px 0px rgba(0,0,0,0.3), 1px 1px 0px rgba(0,0,0,0.15);
+    min-width: 220px; text-align: left;
+  }
+  .menu-btn:hover {
+    background: rgba(248,240,215,1);
+    transform: translate(-2px, -2px) rotate(-0.5deg);
+    box-shadow: 5px 6px 0px rgba(0,0,0,0.35);
+  }
+  .menu-btn:active { transform: translate(1px, 1px); box-shadow: 1px 2px 0px rgba(0,0,0,0.3); }
+
+  /* ── SETTINGS FULL SCREEN ── */
+  #settings-screen {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(14,11,8,0.97);
+    display: none; flex-direction: column; align-items: center; justify-content: center;
+    z-index: 210; cursor: none;
+  }
+  #settings-screen h2 {
+    font-size: clamp(22px, 3vw, 38px); font-style: italic;
+    color: rgba(232,222,205,0.9); margin-bottom: 48px; letter-spacing: 0.04em;
+  }
+  .settings-full-row { display: flex; align-items: center; gap: 24px; margin-bottom: 28px; width: 360px; }
+  .settings-full-label { font-size: 14px; font-style: italic; color: rgba(200,170,90,0.75); width: 100px; text-align: right; }
+  #settings-back-btn {
+    margin-top: 48px; background: rgba(235,228,210,0.88); border: none;
+    padding: 12px 36px; font-family: 'Georgia', serif; font-size: 16px; font-style: italic;
+    color: #1a1510; cursor: none; border-radius: 24px;
+    box-shadow: 3px 4px 0px rgba(0,0,0,0.3); transition: all 0.12s ease;
+    filter: url(#wobble);
+  }
+  #settings-back-btn:hover { transform: translate(-1px, -2px); box-shadow: 4px 6px 0px rgba(0,0,0,0.35); }
+
+  /* ── TOP BAR ── */
+  #top-bar {
+    position: absolute; top: 0; left: 0; right: 0; height: 46px;
+    background: rgba(8,6,4,0.75); border-bottom: 1px solid rgba(200,170,100,0.15);
+    display: none; align-items: center; justify-content: space-between; padding: 0 20px; z-index: 80;
+  }
+  #game-title-bar { font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; color: rgba(200,170,90,0.45); font-style: italic; }
+  #top-bar-right { display: flex; align-items: center; gap: 12px; }
+  .top-btn {
+    font-size: 12px; font-style: italic; color: rgba(200,170,90,0.75);
+    border: 1px solid rgba(200,170,100,0.3); background: transparent; padding: 5px 16px;
+    border-radius: 20px; font-family: 'Georgia', serif; cursor: none; transition: all 0.15s;
+  }
+  .top-btn:hover { background: rgba(200,170,90,0.1); border-color: rgba(200,170,100,0.6); }
+  .icon-btn {
+    width: 34px; height: 34px; display: flex; align-items: center; justify-content: center;
+    border: 1px solid rgba(200,170,100,0.3); border-radius: 50%;
+    background: transparent; cursor: none; transition: all 0.15s; flex-shrink: 0;
+  }
+  .icon-btn:hover { background: rgba(200,170,90,0.1); border-color: rgba(200,170,100,0.6); }
+  .icon-btn svg { width: 16px; height: 16px; }
+
+  /* ── IN-GAME SETTINGS PANEL ── */
+  #settings-panel {
+    position: absolute; top: 54px; right: 16px; background: rgba(12,9,5,0.96);
+    border: 1px solid rgba(200,170,100,0.35); border-radius: 14px; padding: 20px 22px;
+    z-index: 200; display: none; min-width: 230px;
+    box-shadow: 3px 4px 0px rgba(0,0,0,0.4);
+  }
+  #settings-panel h3 { font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase; color: rgba(200,170,90,0.55); margin-bottom: 18px; font-style: italic; }
+  .settings-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; gap: 12px; }
+  .settings-label { font-size: 13px; color: rgba(220,205,175,0.75); font-style: italic; white-space: nowrap; }
+  #music-toggle-btn-ingame {
+    font-size: 11px; font-style: italic; color: rgba(200,170,90,0.85);
+    border: 1px solid rgba(200,170,100,0.4); background: transparent; padding: 4px 12px;
+    border-radius: 14px; font-family: 'Georgia', serif; cursor: none; transition: all 0.15s; min-width: 90px; text-align: center;
+  }
+  #music-toggle-btn-ingame:hover { background: rgba(200,170,90,0.1); }
+  #volume-slider-ingame { flex: 1; accent-color: rgba(200,170,90,0.9); cursor: none; }
+  #volume-readout-ingame { font-size: 11px; color: rgba(200,170,90,0.65); min-width: 36px; text-align: right; font-family: monospace; }
+
+  /* Settings screen controls (reused ids) */
+  #music-toggle-btn { font-size: 12px; font-style: italic; color: rgba(200,170,90,0.85); border: 1px solid rgba(200,170,100,0.4); background: transparent; padding: 5px 14px; border-radius: 16px; font-family: 'Georgia', serif; cursor: none; transition: all 0.15s; min-width: 96px; text-align: center; }
+  #music-toggle-btn:hover { background: rgba(200,170,90,0.1); }
+  #volume-slider { flex: 1; accent-color: rgba(200,170,90,0.9); cursor: none; }
+  #volume-readout { font-size: 11px; color: rgba(200,170,90,0.65); min-width: 36px; text-align: right; font-family: monospace; }
+
+  /* ── INVENTORY ── */
+  #inventory-btn {
+    position: absolute; bottom: 22px; right: 22px; width: 50px; height: 50px;
+    background: rgba(12,9,5,0.85); border: 1px solid rgba(200,170,100,0.4); border-radius: 50%;
+    display: none; align-items: center; justify-content: center; z-index: 60; cursor: none;
+    transition: all 0.15s; box-shadow: 2px 3px 0px rgba(0,0,0,0.4);
+  }
+  #inventory-btn:hover { background: rgba(200,170,90,0.12); border-color: rgba(200,170,100,0.75); transform: translate(-1px,-1px); box-shadow: 3px 4px 0px rgba(0,0,0,0.4); }
+  #inventory-btn svg { width: 24px; height: 24px; }
+  #inv-count { position: absolute; top: -5px; right: -5px; width: 18px; height: 18px; background: rgba(200,170,90,0.95); border-radius: 50%; font-size: 10px; color: #0a0704; display: none; align-items: center; justify-content: center; font-family: 'Georgia', serif; font-weight: bold; pointer-events: none; }
+
+  #inventory-panel {
+    position: absolute; bottom: 82px; right: 18px; width: 290px;
+    background: rgba(12,9,5,0.95); border: 1px solid rgba(200,170,100,0.35); border-radius: 16px;
+    padding: 18px 16px 14px; z-index: 59; display: none;
+    transform: translateY(12px); opacity: 0; transition: transform 0.22s ease, opacity 0.22s ease;
+    box-shadow: 4px 6px 0px rgba(0,0,0,0.45);
+  }
+  #inventory-panel.open { transform: translateY(0); opacity: 1; }
+  #inventory-panel-title { font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase; color: rgba(200,170,90,0.4); margin-bottom: 14px; font-style: italic; }
+  #inventory-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
+  .inv-slot { width: 100%; aspect-ratio: 1; border: 1px solid rgba(200,170,100,0.22); border-radius: 10px; background: rgba(255,255,255,0.03); display: flex; align-items: center; justify-content: center; cursor: none; transition: all 0.15s; position: relative; }
+  .inv-slot.filled { border-color: rgba(200,170,100,0.55); background: rgba(255,220,150,0.07); }
+  .inv-slot.filled:hover { background: rgba(255,220,150,0.14); border-color: rgba(200,170,100,0.9); }
+  .inv-slot svg { width: 22px; height: 22px; }
+  .inv-tooltip { position: absolute; bottom: calc(100% + 8px); left: 50%; transform: translateX(-50%); background: rgba(235,228,210,0.95); border: none; padding: 5px 12px; border-radius: 14px; font-size: 11px; color: rgba(40,28,14,0.85); white-space: nowrap; display: none; pointer-events: none; font-style: italic; z-index: 200; box-shadow: 2px 2px 0px rgba(0,0,0,0.2); filter: url(#wobble); }
+  .inv-slot:hover .inv-tooltip { display: block; }
+
+  /* ── LIGHTBOX ── */
+  #lightbox { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(10,8,5,0.18); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); display: none; align-items: center; justify-content: center; z-index: 150; cursor: none; opacity: 0; transition: opacity 0.28s ease; }
+  #lightbox.open { opacity: 1; }
+  #lightbox-inner { position: relative; max-width: 72vw; max-height: 82vh; display: flex; align-items: center; justify-content: center; }
+  #lightbox-img { max-width: 100%; max-height: 82vh; object-fit: contain; display: block; border-radius: 6px; }
+  #lightbox-close { position: absolute; top: -38px; right: 0; font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase; color: rgba(200,170,90,0.45); font-family: 'Georgia', serif; font-style: italic; cursor: none; }
+  #lightbox-hint { position: absolute; bottom: -32px; left: 50%; transform: translateX(-50%); font-size: 10px; color: rgba(200,170,90,0.3); font-family: 'Georgia', serif; font-style: italic; pointer-events: none; }
+
+  /* ── DIALOGUE ── */
+  #dialogue-box { position: absolute; bottom: 84px; left: 50%; transform: translateX(-50%); width: 64%; max-width: 740px; background: rgba(12,9,5,0.93); border: 1px solid rgba(200,170,100,0.35); border-radius: 16px; padding: 22px 30px 18px; display: none; z-index: 100; box-shadow: 4px 5px 0px rgba(0,0,0,0.4); }
+  #dialogue-speaker { font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase; color: rgba(200,170,90,0.85); margin-bottom: 10px; font-style: italic; }
+  #dialogue-text { font-size: 16px; line-height: 1.75; color: rgba(232,222,205,0.96); font-style: italic; }
+  #dialogue-continue { font-size: 10px; color: rgba(200,170,90,0.45); text-align: right; margin-top: 12px; letter-spacing: 0.1em; animation: blink 1.5s infinite; font-style: italic; }
+  @keyframes blink { 0%,100%{opacity:0.3} 50%{opacity:1} }
 
   /* ── MISC ── */
-  #scene-label { position: absolute; top: 52px; left: 20px; font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase; color: rgba(200,170,90,0.35); z-index: 10; pointer-events: none; }
-  #editor-panel { position: absolute; top: 52px; right: 16px; background: rgba(8,6,4,0.94); border: 1px solid rgba(255,200,80,0.5); border-radius: 5px; padding: 16px 20px; z-index: 300; display: none; min-width: 280px; }
-  #editor-panel h3 { font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase; color: rgba(255,200,80,0.85); margin-bottom: 12px; }
+  #scene-label { position: absolute; top: 54px; left: 22px; font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase; color: rgba(200,170,90,0.3); z-index: 10; pointer-events: none; font-style: italic; }
+  #editor-panel { position: absolute; top: 54px; right: 16px; background: rgba(8,6,4,0.95); border: 1px solid rgba(255,200,80,0.55); border-radius: 12px; padding: 18px 20px; z-index: 300; display: none; min-width: 280px; }
+  #editor-panel h3 { font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase; color: rgba(255,200,80,0.85); margin-bottom: 12px; font-style: italic; }
   #editor-coords { font-size: 13px; color: rgba(232,222,205,0.8); font-family: monospace; margin-bottom: 10px; line-height: 1.8; }
-  #editor-json { font-size: 11px; color: rgba(140,220,140,0.9); font-family: monospace; background: rgba(0,0,0,0.45); padding: 10px; border-radius: 4px; white-space: pre; cursor: text; user-select: all; line-height: 1.6; }
+  #editor-json { font-size: 11px; color: rgba(140,220,140,0.9); font-family: monospace; background: rgba(0,0,0,0.45); padding: 10px; border-radius: 8px; white-space: pre; cursor: text; user-select: all; line-height: 1.6; }
   #editor-hint { font-size: 11px; color: rgba(200,170,90,0.5); font-style: italic; margin-top: 10px; }
-  #editor-badge { position: absolute; top: 52px; left: 50%; transform: translateX(-50%); font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase; padding: 6px 18px; border-radius: 20px; background: rgba(255,200,80,0.15); border: 1px solid rgba(255,200,80,0.45); color: rgba(255,200,80,0.85); z-index: 100; display: none; pointer-events: none; }
-  #help-hint { position: absolute; bottom: 80px; right: 82px; font-size: 10px; letter-spacing: 0.1em; color: rgba(200,170,90,0.22); line-height: 2.2; text-align: right; z-index: 10; pointer-events: none; }
-  .fade-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: #000; z-index: 500; pointer-events: none; opacity: 0; transition: opacity 0.7s ease; }
+  #editor-badge { position: absolute; top: 54px; left: 50%; transform: translateX(-50%); font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase; padding: 6px 20px; border-radius: 20px; background: rgba(255,200,80,0.15); border: 1px solid rgba(255,200,80,0.45); color: rgba(255,200,80,0.85); z-index: 100; display: none; pointer-events: none; font-style: italic; }
+  #help-hint { position: absolute; bottom: 82px; right: 86px; font-size: 10px; letter-spacing: 0.08em; color: rgba(200,170,90,0.18); line-height: 2.2; text-align: right; z-index: 10; pointer-events: none; font-style: italic; }
+  .fade-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: #0d0b08; z-index: 500; pointer-events: none; opacity: 0; transition: opacity 0.7s ease; }
   #drag-canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 250; display: none; }
-
-  /* ── PAN HINT ── */
-  #pan-hint {
-    position: absolute;
-    bottom: 90px;
-    left: 50%;
-    transform: translateX(-50%);
-    display: none;
-    align-items: center;
-    gap: 16px;
-    z-index: 90;
-    pointer-events: none;
-  }
-
-  .pan-key {
-    background: rgba(235,228,210,0.92);
-    padding: 10px 18px 10px 14px;
-    font-family: 'Georgia', serif;
-    font-size: clamp(13px, 1.6vw, 18px);
-    font-style: italic;
-    color: #1a1510;
-    filter: url(#wobble);
-    box-shadow: 3px 4px 0px rgba(0,0,0,0.28);
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    letter-spacing: 0.02em;
-  }
-
-  .pan-arrow {
-    display: inline-block;
-    width: 22px; height: 22px;
-    border: 2px solid #1a1510;
-    border-radius: 4px;
-    position: relative;
-    flex-shrink: 0;
-  }
-  .pan-arrow::after {
-    content: '';
-    position: absolute;
-    top: 50%; left: 50%;
-    border: solid #1a1510;
-    border-width: 0 2px 2px 0;
-    padding: 4px;
-    transform: translate(-65%, -50%) rotate(135deg);
-  }
-  .pan-arrow.right::after {
-    transform: translate(-35%, -50%) rotate(-45deg);
-  }
-
-  .pan-divider {
-    font-family: 'Georgia', serif;
-    font-size: 13px;
-    font-style: italic;
-    color: rgba(235,228,210,0.7);
-    letter-spacing: 0.1em;
-  }
 </style>
 </head>
 <body>
+
+<svg id="svg-filters" xmlns="http://www.w3.org/2000/svg" style="position:absolute;width:0;height:0;overflow:hidden;">
+  <defs>
+    <filter id="wobble" x="-5%" y="-10%" width="110%" height="130%">
+      <feTurbulence type="turbulence" baseFrequency="0.065" numOctaves="3" seed="8" result="noise"/>
+      <feDisplacementMap in="SourceGraphic" in2="noise" scale="3" xChannelSelector="R" yChannelSelector="G"/>
+    </filter>
+  </defs>
+</svg>
+
 <div id="game-container">
 
   <div class="fade-overlay" id="fade"></div>
 
   <!-- TITLE SCREEN -->
   <div id="title-screen">
-    <div id="title-eyebrow">A point &amp; click mystery</div>
-    <div id="title-main">The Mystery</div>
-    <div id="title-of">— of —</div>
-    <div id="title-name">Brita Svani</div>
-    <button id="start-btn" onclick="startGame()">Begin Investigation</button>
+    <img id="title-bg" src="assets/backgrounds/start_frame.png" alt="" />
+    <div id="title-content">
+      <button class="menu-btn" onclick="startGame()">new game</button>
+      <button class="menu-btn" onclick="resumeGame()">resume game</button>
+      <button class="menu-btn" onclick="openSettings()">settings</button>
+    </div>
+  </div>
+
+  <!-- SETTINGS FULL SCREEN -->
+  <div id="settings-screen">
+    <h2>Settings</h2>
+    <div class="settings-full-row">
+      <span class="settings-full-label">Music</span>
+      <button id="music-toggle-btn" onclick="setMusicEnabled(!STATE.musicEnabled)">Music: ON</button>
+    </div>
+    <div class="settings-full-row">
+      <span class="settings-full-label">Volume</span>
+      <input id="volume-slider" type="range" min="0" max="100" value="50" oninput="setMusicVolume(this.value/100)" />
+      <span id="volume-readout">50%</span>
+    </div>
+    <button id="settings-back-btn" onclick="closeSettings()">back</button>
   </div>
 
   <!-- BACKGROUND -->
-  <img id="background" src="assets/backgrounds/living_room.jpg" alt="Scene" />
-
-  <!-- PROP LAYER (stickers on top of background, below hotspots) -->
+  <img id="background" src="" alt="Scene" />
   <div id="prop-layer"></div>
 
   <!-- TOP BAR -->
   <div id="top-bar">
     <div id="game-title-bar">The Mystery of Brita Svani</div>
     <div id="top-bar-right">
-      <button class="top-btn" onclick="goToMainMenu()">Main Menu</button>
-      <div class="icon-btn" id="settings-btn" onclick="toggleSettings()">
+      <button class="top-btn" onclick="goToMainMenu()">menu</button>
+      <div class="icon-btn" id="settings-btn" onclick="toggleSettingsPanel()">
         <svg viewBox="0 0 24 24" fill="none" stroke="rgba(200,170,90,0.8)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
           <circle cx="12" cy="12" r="3"/>
           <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
@@ -278,17 +277,17 @@
     </div>
   </div>
 
-  <!-- SETTINGS PANEL -->
+  <!-- IN-GAME SETTINGS PANEL -->
   <div id="settings-panel">
     <h3>Settings</h3>
     <div class="settings-row">
       <span class="settings-label">Music</span>
-      <button id="music-toggle-btn" onclick="setMusicEnabled(!STATE.musicEnabled)">Music: ON</button>
+      <button id="music-toggle-btn-ingame" onclick="setMusicEnabled(!STATE.musicEnabled)">Music: ON</button>
     </div>
     <div class="settings-row">
       <span class="settings-label">Volume</span>
-      <input id="volume-slider" type="range" min="0" max="100" value="50" oninput="setMusicVolume(this.value / 100)" />
-      <span id="volume-readout">50%</span>
+      <input id="volume-slider-ingame" type="range" min="0" max="100" value="50" oninput="setMusicVolume(this.value/100)" />
+      <span id="volume-readout-ingame">50%</span>
     </div>
   </div>
 
@@ -296,12 +295,16 @@
   <div id="editor-badge">Editor Mode — drag to mark a hotspot</div>
   <div id="hotspot-layer"></div>
 
-  <!-- LIGHTBOX (cat portrait fullscreen) -->
+  <!-- PAN ARROWS (shown in pan scenes only) -->
+  <div id="pan-hint-left" class="hidden">← pan</div>
+  <div id="pan-hint-right" class="hidden">pan →</div>
+
+  <!-- LIGHTBOX -->
   <div id="lightbox" onclick="closeLightbox()">
     <div id="lightbox-inner">
       <div id="lightbox-close">click anywhere to close</div>
-      <img id="lightbox-img" src="" alt="Close up" />
-      <div id="lightbox-hint">ESC to close</div>
+      <img id="lightbox-img" src="" alt="" />
+      <div id="lightbox-hint">esc to close</div>
     </div>
   </div>
 
@@ -312,7 +315,7 @@
     <div id="dialogue-continue">click to continue ›</div>
   </div>
 
-  <!-- INVENTORY BUTTON -->
+  <!-- INVENTORY -->
   <div id="inventory-btn" onclick="toggleInventory()">
     <svg viewBox="0 0 26 26" fill="none" xmlns="http://www.w3.org/2000/svg">
       <path d="M9 8 C9 5 10.5 3.5 13 3.5 C15.5 3.5 17 5 17 8" stroke="rgba(200,170,90,0.85)" stroke-width="1.5" stroke-linecap="round" fill="none"/>
@@ -322,14 +325,12 @@
     </svg>
     <div id="inv-count"></div>
   </div>
-
-  <!-- INVENTORY PANEL -->
   <div id="inventory-panel">
     <div id="inventory-panel-title">Inventory</div>
     <div id="inventory-grid"></div>
   </div>
 
-  <!-- EDITOR PANEL -->
+  <!-- EDITOR -->
   <div id="editor-panel">
     <h3>Hotspot Editor</h3>
     <div id="editor-coords">Click and drag on the scene to mark a hotspot area.</div>
@@ -337,33 +338,14 @@
     <div id="editor-hint">Click the green text to select all, then Cmd+C.</div>
   </div>
 
-  <div id="help-hint">E — editor&nbsp;&nbsp;|&nbsp;&nbsp;I — inventory&nbsp;&nbsp;|&nbsp;&nbsp;ESC — close</div>
+  <div id="help-hint">E — editor&nbsp;&nbsp;|&nbsp;&nbsp;I — inventory&nbsp;&nbsp;|&nbsp;&nbsp;← → pan&nbsp;&nbsp;|&nbsp;&nbsp;ESC — close</div>
+  <canvas id="drag-canvas"></canvas>
 
-  
-  <!-- PAN HINT — shown briefly when entering a pan scene for the first time -->
-  <div id="pan-hint">
-    <div class="pan-key">
-      <span class="pan-arrow"></span>
-      pan left
-    </div>
-    <div class="pan-divider">—</div>
-    <div class="pan-key">
-      pan right
-      <span class="pan-arrow right"></span>
-    </div>
-  </div>
-
-<canvas id="drag-canvas"></canvas>
-
-  <!-- Custom crosshair cursor -->
-  <svg id="custom-cursor" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg"
-    style="position:fixed;width:32px;height:32px;pointer-events:none;z-index:9999;transform:translate(-50%,-50%)">
-    <circle cx="16" cy="16" r="5.5" fill="none" stroke="rgba(200,170,90,0.9)" stroke-width="1.5"/>
-    <line x1="16" y1="3" x2="16" y2="9.5" stroke="rgba(200,170,90,0.9)" stroke-width="1.5"/>
-    <line x1="16" y1="22.5" x2="16" y2="29" stroke="rgba(200,170,90,0.9)" stroke-width="1.5"/>
-    <line x1="3" y1="16" x2="9.5" y2="16" stroke="rgba(200,170,90,0.9)" stroke-width="1.5"/>
-    <line x1="22.5" y1="16" x2="29" y2="16" stroke="rgba(200,170,90,0.9)" stroke-width="1.5"/>
-  </svg>
+  <!-- Custom cursor — your drawn hand PNG -->
+  <img id="custom-cursor"
+    src="assets/cursors/cursor_default.png"
+    style="position:fixed;width:32px;height:32px;pointer-events:none;z-index:9999;transform:translate(-4px,-4px);"
+    alt="" />
 
 </div>
 <script src="scenes.js"></script>
