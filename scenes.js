@@ -1,11 +1,10 @@
 // scenes.js — The Mystery of Brita Svani
 // THIS is your content file. engine.js handles all logic — never touch that.
-// To swap a background later: just replace the image file in assets/backgrounds/
-// keeping the same filename. No code changes needed.
+// To swap a background: replace the image file keeping the same filename.
 
 const SCENES = {
 
-  // ── THE STREET (starting scene, pan left/right) ───────────────────────────
+  // ── THE STREET (pan scene) ────────────────────────────────────────────────
   exterior: {
     id: "exterior",
     name: "The Street",
@@ -18,37 +17,25 @@ const SCENES = {
         id: "apartment_entrance",
         label: "Brita's Apartment",
         x: 64, y: 38, width: 7, height: 23,
-        action: {
-          type: "scene",
-          target: "living_room"
-        }
+        action: { type: "scene", target: "living_room" }
       },
       {
         id: "cafe_entrance",
         label: "Mamma Cale's",
         x: 41, y: 47, width: 11, height: 28,
-        action: {
-          type: "scene",
-          target: "cafe"
-        }
+        action: { type: "scene", target: "cafe" }
       },
       {
         id: "back_alley",
         label: "Back Alley",
         x: 18, y: 51, width: 4, height: 35,
-        action: {
-          type: "scene",
-          target: "alley"
-        }
+        action: { type: "scene", target: "alley" }
       },
       {
         id: "camping_wagon",
         label: "Up on the Hill",
         x: 7, y: 5, width: 6, height: 15,
-        action: {
-          type: "scene",
-          target: "cabin"
-        }
+        action: { type: "scene", target: "cabin" }
       },
       {
         id: "theatre_door",
@@ -64,8 +51,6 @@ const SCENES = {
   },
 
   // ── BRITA'S LIVING ROOM ───────────────────────────────────────────────────
-  // Background: assets/backgrounds/living_room.jpg
-  // To update: replace that file, keep the same name.
   living_room: {
     id: "living_room",
     name: "Brita's Apartment",
@@ -82,10 +67,7 @@ const SCENES = {
         id: "big_window",
         label: "Back to the Street",
         x: 37, y: 23, width: 49, height: 49,
-        action: {
-          type: "scene",
-          target: "exterior"
-        }
+        action: { type: "scene", target: "exterior" }
       },
       {
         id: "table",
@@ -114,30 +96,32 @@ const SCENES = {
         id: "cat_portrait",
         label: "Cat Portrait",
         x: 28.5, y: 22, width: 8, height: 18,
-        action: {
-          type: "lightbox",
-          image: "assets/ui/cat_portrait.png"
-        }
+        action: { type: "lightbox", image: "assets/ui/cat_portrait.png" }
       }
     ]
   },
 
-  // ── MAMMA CALE'S CAFÉ ────────────────────────────────────────────────────
-  // Background: assets/backgrounds/cafe.jpg
+  // ── MAMMA CALE'S CAFÉ (pan scene) ────────────────────────────────────────
   cafe: {
     id: "cafe",
     name: "Mamma Cale's",
     background: "assets/backgrounds/cafe.jpg",
+    type: "pan",
+    panStart: 0.0,
+    showPanHint: true,
     props: [],
     hotspots: [
       {
-        id: "cafe_exit",
+        id: "cafe_exit_left",
         label: "Back to the Street",
-        x: 0, y: 0, width: 8, height: 100,
-        action: {
-          type: "scene",
-          target: "exterior"
-        }
+        x: 0, y: 0, width: 4, height: 100,
+        action: { type: "scene", target: "exterior" }
+      },
+      {
+        id: "cafe_exit_right",
+        label: "Back to the Street",
+        x: 96, y: 0, width: 4, height: 100,
+        action: { type: "scene", target: "exterior" }
       },
       {
         id: "bartender",
@@ -160,20 +144,103 @@ const SCENES = {
         }
       },
       {
+        id: "take_a_seat",
+        label: "Take a Seat",
+        x: 36, y: 70, width: 18, height: 25,
+        action: { type: "scene", target: "bar" }
+      },
+      {
         id: "brita_friends",
-        label: "Women at the Table",
+        label: "Talk to Brita's Friends",
         x: 58, y: 30, width: 30, height: 45,
+        action: { type: "scene", target: "ladies" }
+      }
+    ]
+  },
+
+  // ── LADIES TABLE ─────────────────────────────────────────────────────────
+  ladies: {
+    id: "ladies",
+    name: "Brita's Friends",
+    background: "assets/backgrounds/ladies.jpg",
+    props: [],
+    hotspots: [
+      {
+        id: "ladies_exit",
+        label: "Back to the Café",
+        x: 0, y: 0, width: 10, height: 100,
+        action: { type: "scene", target: "cafe" }
+      },
+      {
+        id: "lady_left",
+        label: "Talk",
+        x: 10, y: 8, width: 22, height: 75,
         action: {
           type: "dialogue",
           speaker: "Brita's Friend",
-          text: "We haven't seen her since closing night. She left early — or we thought she did. Her apartment is on the fourth floor. Maybe start there."
+          text: "She seemed perfectly fine at the show. Laughing, drinking. That's Brita. Then she was just — gone."
+        }
+      },
+      {
+        id: "lady_centre",
+        label: "Talk",
+        x: 38, y: 5, width: 25, height: 75,
+        action: {
+          type: "dialogue",
+          speaker: "Brita's Friend",
+          text: "She bought a house somewhere. Mentioned it once, weeks ago. I didn't think anything of it. Brita was always talking about leaving."
+        }
+      },
+      {
+        id: "lady_right",
+        label: "Talk",
+        x: 72, y: 8, width: 22, height: 75,
+        action: {
+          type: "dialogue",
+          speaker: "Brita's Friend",
+          text: "Ask the man at the bar. He and Brita had words that night. I saw them."
+        }
+      }
+    ]
+  },
+
+  // ── BAR CLOSE-UP ─────────────────────────────────────────────────────────
+  bar: {
+    id: "bar",
+    name: "At the Bar",
+    background: "assets/backgrounds/bar.jpg",
+    props: [],
+    hotspots: [
+      {
+        id: "bar_exit",
+        label: "Back to the Café",
+        x: 0, y: 0, width: 8, height: 100,
+        action: { type: "scene", target: "cafe" }
+      },
+      {
+        id: "bartender_close",
+        label: "Bartender",
+        x: 18, y: 15, width: 28, height: 72,
+        action: {
+          type: "dialogue",
+          speaker: "Bartender",
+          text: "One drink. Then I'm closing up and you're leaving."
+        }
+      },
+      {
+        id: "drunk_man_close",
+        label: "Drunk Man",
+        x: 58, y: 8, width: 38, height: 85,
+        action: {
+          type: "dialogue",
+          speaker: "Drunk Man",
+          text: "She was unhappy. Long time. Last week she said she bought something. A house. Out in Feelianco. Far out. Nobody goes there anymore."
         }
       }
     ]
   },
 
   // ── BACK ALLEY ───────────────────────────────────────────────────────────
-  // Background: assets/backgrounds/alley.jpg
   alley: {
     id: "alley",
     name: "The Back Alley",
@@ -183,27 +250,55 @@ const SCENES = {
       {
         id: "alley_exit",
         label: "Back to the Street",
-        x: 0, y: 0, width: 15, height: 100,
-        action: {
-          type: "scene",
-          target: "exterior"
-        }
+        x: 0, y: 30, width: 12, height: 60,
+        action: { type: "scene", target: "exterior" }
       },
       {
         id: "theatre_backdoor",
         label: "Theatre Backdoor",
         x: 30, y: 20, width: 25, height: 65,
+        action: { type: "scene", target: "wardrobe" }
+      }
+    ]
+  },
+
+  // ── THEATRE WARDROBE ─────────────────────────────────────────────────────
+  wardrobe: {
+    id: "wardrobe",
+    name: "Theatre Wardrobe",
+    background: "assets/backgrounds/wardrobe.jpg",
+    props: [],
+    hotspots: [
+      {
+        id: "wardrobe_exit",
+        label: "Back Outside",
+        x: 0, y: 0, width: 8, height: 100,
+        action: { type: "scene", target: "alley" }
+      },
+      {
+        id: "mirror",
+        label: "Dressing Mirror",
+        x: 18, y: 12, width: 28, height: 65,
         action: {
           type: "dialogue",
           speaker: "You",
-          text: "A heavy door. There's a lock — old brass, well-used. I need the right key."
+          text: "A silhouette in the mirror. For a second I thought someone was still here. Just the light playing tricks."
+        }
+      },
+      {
+        id: "wardrobe_cabinet",
+        label: "Costume Cabinet",
+        x: 60, y: 10, width: 28, height: 72,
+        action: {
+          type: "dialogue",
+          speaker: "You",
+          text: "Costumes from a dozen productions. She would have touched every one of these. Thirty years of work hanging in the dark."
         }
       }
     ]
   },
 
-  // ── DETECTIVE'S CABIN (title screen scene) ────────────────────────────────
-  // Background: assets/backgrounds/start_frame.png
+  // ── DETECTIVE'S CABIN ────────────────────────────────────────────────────
   cabin: {
     id: "cabin",
     name: "The Hill",
@@ -211,28 +306,12 @@ const SCENES = {
     props: [],
     hotspots: [
       {
-        id: "cabin_exit",
-        label: "Back to the Street",
-        x: 40, y: 60, width: 20, height: 30,
-        action: {
-          type: "scene",
-          target: "exterior"
-        }
+        id: "cabin_city",
+        label: "Go Back to Town",
+        x: 55, y: 25, width: 42, height: 50,
+        action: { type: "scene", target: "exterior" }
       }
     ]
   }
-
-  // ── HOW TO ADD A NEW SCENE ───────────────────────────────────────────────
-  // 1. Put your background in assets/backgrounds/ with a clean name (no spaces)
-  // 2. Copy a scene block below and fill it in
-  // 3. Add a hotspot in another scene pointing to it with type: "scene"
-  //
-  // ,new_scene: {
-  //   id: "new_scene",
-  //   name: "Scene Name",
-  //   background: "assets/backgrounds/filename.jpg",
-  //   props: [],
-  //   hotspots: []
-  // }
 
 };
