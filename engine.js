@@ -5,16 +5,22 @@ const STATE = {
   currentScene: null,
   inventory: [],
   removedProps: {},
+  visitedScenes: {},
   editorMode: false,
   dialogueOpen: false,
   inventoryOpen: false,
   lightboxOpen: false,
+  choiceOpen: false,
   musicEnabled: true,
   musicVolume: 0.5,
   panX: 0,
   panTarget: 0,
   panScene: false,
   panKeys: { left: false, right: false },
+  // Dialogue sequence state
+  seqLines: [],
+  seqIndex: 0,
+  seqOnComplete: null,
 };
 
 const PAN_SPEED = 6;
@@ -26,9 +32,7 @@ const bgMusic = new Audio("assets/audio/score.mp3");
 bgMusic.loop = true;
 bgMusic.volume = STATE.musicVolume;
 
-function startMusic() {
-  if (STATE.musicEnabled) bgMusic.play().catch(() => {});
-}
+function startMusic() { if (STATE.musicEnabled) bgMusic.play().catch(() => {}); }
 function setMusicEnabled(val) {
   STATE.musicEnabled = val;
   val ? bgMusic.play().catch(() => {}) : bgMusic.pause();
@@ -64,6 +68,7 @@ function resumeGame() {
       document.getElementById("inventory-btn").style.display = "flex";
       if (data.inventory) STATE.inventory = data.inventory;
       if (data.removedProps) STATE.removedProps = data.removedProps;
+      if (data.visitedScenes) STATE.visitedScenes = data.visitedScenes;
       loadScene(data.scene || "exterior");
       fadeIn();
       startMusic();
@@ -75,12 +80,9 @@ function resumeGame() {
   }
 }
 
-function openSettings() {
-  document.getElementById("settings-screen").style.display = "flex";
-}
-function closeSettings() {
-  document.getElementById("settings-screen").style.display = "none";
-}
+function openSettings() { document.getElementById("settings-screen").style.display = "flex"; }
+function closeSettings() { document.getElementById("settings-screen").style.display = "none"; }
+
 function showTitleMessage(msg) {
   const el = document.createElement("div");
   el.textContent = msg;
@@ -92,7 +94,10 @@ function showTitleMessage(msg) {
 function loadScene(sceneId) {
   const scene = SCENES[sceneId];
   if (!scene) { console.error("Scene not found:", sceneId); return; }
+
+  const firstVisit = !STATE.visitedScenes[sceneId];
   STATE.currentScene = scene;
+  STATE.visitedScenes[sceneId] = true;
 
   const bg = document.getElementById("background");
   STATE.panScene = scene.type === "pan";
@@ -120,32 +125,49 @@ function loadScene(sceneId) {
     bg.onload = null;
     STATE.panX = 0;
     STATE.panTarget = 0;
-    // Reset layers that pan scenes stretch/shift
+    // Reset layers
     const hl = document.getElementById("hotspot-layer");
     const pl = document.getElementById("prop-layer");
-    hl.style.transform = "";
-    hl.style.width = "100%";
-    hl.style.height = "100%";
-    hl.style.left = "0";
-    pl.style.transform = "";
-    pl.style.width = "100%";
-    pl.style.height = "100%";
+    hl.style.transform = ""; hl.style.width = "100%"; hl.style.height = "100%"; hl.style.left = "0";
+    pl.style.transform = ""; pl.style.width = "100%"; pl.style.height = "100%";
     renderHotspots(scene);
   }
 
   bg.src = scene.background;
   document.getElementById("scene-label").textContent = scene.name;
 
-  closeInventory();
-  closeLightbox();
+  // Pan hint
+  const panHint = document.getElementById("pan-hint");
+  if (panHint) {
+    if (STATE.panScene && scene.showPanHint && firstVisit) {
+      panHint.style.display = "flex"; panHint.style.opacity = "1";
+      setTimeout(() => {
+        panHint.style.transition = "opacity 0.8s ease"; panHint.style.opacity = "0";
+        setTimeout(() => { panHint.style.display = "none"; panHint.style.transition = ""; panHint.style.opacity = "1"; }, 800);
+      }, 3000);
+    } else {
+      panHint.style.display = "none";
+    }
+  }
+
+  closeInventory(); closeLightbox(); closeChoice();
   renderProps(scene);
   renderInventory();
 
+  // onEnter trigger (e.g. cat sighting in alley)
+  if (scene.onEnter && firstVisit) {
+    setTimeout(() => {
+      if (scene.onEnter.type === "dialogue") showDialogue(scene.onEnter.speaker, scene.onEnter.text);
+    }, 600);
+  }
+
+  // Auto-save
   setTimeout(() => {
     localStorage.setItem('brita_save', JSON.stringify({
       scene: sceneId,
       inventory: STATE.inventory,
-      removedProps: STATE.removedProps
+      removedProps: STATE.removedProps,
+      visitedScenes: STATE.visitedScenes
     }));
   }, 200);
 }
@@ -154,24 +176,22 @@ function loadScene(sceneId) {
 
 function getScaledImageWidth() {
   const bg = document.getElementById("background");
-  const nw = bg.naturalWidth  || 3552;
+  const nw = bg.naturalWidth || 3552;
   const nh = bg.naturalHeight || 1693;
   return nw * (window.innerHeight / nh);
 }
 
-function getMaxPan() {
-  return Math.max(0, getScaledImageWidth() - window.innerWidth);
-}
+function getMaxPan() { return Math.max(0, getScaledImageWidth() - window.innerWidth); }
 
 function applyPan() {
   if (!STATE.panScene) return;
   const tx = -Math.round(STATE.panX);
   const bg = document.getElementById("background");
-  const propLayer = document.getElementById("prop-layer");
-  const hotspotLayer = document.getElementById("hotspot-layer");
+  const pl = document.getElementById("prop-layer");
+  const hl = document.getElementById("hotspot-layer");
   bg.style.transform = `translateX(${tx}px)`;
-  propLayer.style.transform = `translateX(${tx}px)`;
-  hotspotLayer.style.transform = `translateX(${tx}px)`;
+  pl.style.transform = `translateX(${tx}px)`;
+  hl.style.transform = `translateX(${tx}px)`;
 }
 
 function panLoop() {
@@ -194,8 +214,8 @@ function getCoverRect() {
   }
   const nw = bg.naturalWidth || 1920, nh = bg.naturalHeight || 1080;
   const scale = Math.max(vw / nw, vh / nh);
-  const renderedW = nw * scale, renderedH = nh * scale;
-  return { offsetX: (renderedW - vw) / 2, offsetY: (renderedH - vh) / 2, renderedW, renderedH };
+  const rW = nw * scale, rH = nh * scale;
+  return { offsetX: (rW - vw) / 2, offsetY: (rH - vh) / 2, renderedW: rW, renderedH: rH };
 }
 
 function positionProp(el, prop) {
@@ -214,7 +234,7 @@ function renderProps(scene) {
   scene.props.forEach(prop => {
     if (removed[prop.id]) return;
     const el = document.createElement("img");
-    el.src = prop.image + "?v=" + Date.now();
+    el.src = prop.image + "?v=1";
     el.id = "prop-" + prop.id;
     el.style.cssText = "position:absolute;pointer-events:none;";
     positionProp(el, prop);
@@ -224,26 +244,21 @@ function renderProps(scene) {
 }
 
 window.addEventListener("resize", () => {
-  if (STATE.currentScene) {
-    renderHotspots(STATE.currentScene);
-    const removed = STATE.removedProps[STATE.currentScene.id] || {};
-    (STATE.currentScene.props || []).forEach(prop => {
-      if (removed[prop.id]) return;
-      const el = document.getElementById("prop-" + prop.id);
-      if (el) positionProp(el, prop);
-    });
-  }
+  if (!STATE.currentScene) return;
+  renderHotspots(STATE.currentScene);
+  const removed = STATE.removedProps[STATE.currentScene.id] || {};
+  (STATE.currentScene.props || []).forEach(prop => {
+    if (removed[prop.id]) return;
+    const el = document.getElementById("prop-" + prop.id);
+    if (el) positionProp(el, prop);
+  });
 });
 
 function removeProp(sceneId, propId) {
   if (!STATE.removedProps[sceneId]) STATE.removedProps[sceneId] = {};
   STATE.removedProps[sceneId][propId] = true;
   const el = document.getElementById("prop-" + propId);
-  if (el) {
-    el.style.transition = "opacity 0.35s ease";
-    el.style.opacity = "0";
-    setTimeout(() => el.remove(), 360);
-  }
+  if (el) { el.style.transition = "opacity 0.35s"; el.style.opacity = "0"; setTimeout(() => el.remove(), 360); }
 }
 
 // ─── HOTSPOTS ────────────────────────────────────────────────────────────────
@@ -251,23 +266,22 @@ function removeProp(sceneId, propId) {
 function renderHotspots(scene) {
   const layer = document.getElementById("hotspot-layer");
   layer.innerHTML = "";
-
   const isPan = scene.type === "pan";
   const vh = window.innerHeight;
 
   if (isPan) {
     const scaledW = getScaledImageWidth();
-    layer.style.position = "absolute";
-    layer.style.top = "0";
-    layer.style.left = "0";
-    layer.style.width = scaledW + "px";
-    layer.style.height = vh + "px";
+    layer.style.position = "absolute"; layer.style.top = "0"; layer.style.left = "0";
+    layer.style.width = scaledW + "px"; layer.style.height = vh + "px";
   } else {
-    layer.style.width = "100%";
-    layer.style.height = "100%";
+    layer.style.width = "100%"; layer.style.height = "100%";
   }
 
   scene.hotspots.forEach(hs => {
+    // Hide hotspots that require an item the player doesn't have
+    // (for second-visit-only items like Edward's note)
+    if (hs.requiresItem && !STATE.inventory.find(i => i.id === hs.requiresItem)) return;
+
     const el = document.createElement("div");
     el.className = "hotspot" + (STATE.editorMode ? " debug" : "");
 
@@ -300,6 +314,10 @@ function triggerHotspot(hs) {
 
   if (action.type === "dialogue") {
     showDialogue(action.speaker, action.text);
+
+  } else if (action.type === "dialogue_sequence") {
+    startSequence(action.lines, action.onComplete);
+
   } else if (action.type === "pickup") {
     const alreadyHave = STATE.inventory.find(i => i.id === action.item.id);
     if (!alreadyHave) {
@@ -309,42 +327,181 @@ function triggerHotspot(hs) {
       if (action.removesProp) removeProp(STATE.currentScene.id, action.removesProp);
       const hotspotEl = document.querySelector(`[data-id="${hs.id}"]`);
       if (hotspotEl) hotspotEl.style.display = "none";
-      showDialogue(action.speaker, action.text);
+      if (action.showLightbox) {
+        openLightbox(action.showLightbox, action.text);
+      } else {
+        showDialogue(action.speaker, action.text);
+      }
     } else {
       showDialogue(action.speaker, action.alreadyTaken || "I already have that.");
     }
+
   } else if (action.type === "scene") {
     closeInventory(); closeLightbox();
     fadeOut(() => { loadScene(action.target); fadeIn(); });
+
   } else if (action.type === "lightbox") {
-    openLightbox(action.image);
+    openLightbox(action.image, action.caption);
+
   } else if (action.type === "conditional") {
-    const hasItem = STATE.inventory.find(i => i.id === action.requiresItem);
+    const hasItem = action.requiresItem ? STATE.inventory.find(i => i.id === action.requiresItem) : true;
     if (hasItem) {
-      showDialogue(action.speaker, action.textSuccess);
-      if (action.then) setTimeout(() => handleThen(action.then), 1800);
+      if (action.showLightboxOnSuccess) {
+        openLightbox(action.showLightboxOnSuccess, action.textSuccess);
+        if (action.then) setTimeout(() => handleThen(action.then), 600);
+      } else {
+        showDialogue(action.speaker, action.textSuccess);
+        if (action.then) setTimeout(() => handleThen(action.then), 1600);
+      }
     } else {
       showDialogue(action.speaker, action.textFail);
     }
+
+  } else if (action.type === "choice") {
+    openChoice();
   }
 }
 
 function handleThen(then) {
-  if (then.type === "scene") fadeOut(() => { loadScene(then.target); fadeIn(); });
-  else if (then.type === "pickup") {
+  if (then.type === "scene") {
+    fadeOut(() => { loadScene(then.target); fadeIn(); });
+  } else if (then.type === "pickup") {
     if (!STATE.inventory.find(i => i.id === then.item.id)) {
-      STATE.inventory.push(then.item); renderInventory();
+      STATE.inventory.push(then.item);
+      renderInventory();
+      showPickupNotification(then.item.label);
+      showDialogue(then.speaker, then.text);
+    }
+  } else if (then.type === "endcard") {
+    showEndCard(then.branch);
+  }
+}
+
+// ─── DIALOGUE SEQUENCE ───────────────────────────────────────────────────────
+
+function startSequence(lines, onComplete) {
+  STATE.seqLines = lines;
+  STATE.seqIndex = 0;
+  STATE.seqOnComplete = onComplete || null;
+  closeInventory();
+  showSeqLine();
+}
+
+function showSeqLine() {
+  const line = STATE.seqLines[STATE.seqIndex];
+  if (!line) { endSequence(); return; }
+  showDialogue(line.speaker, line.text);
+  STATE.dialogueOpen = true;
+  // Override click to advance sequence
+  document.getElementById("dialogue-box").onclick = advanceSequence;
+}
+
+function advanceSequence() {
+  STATE.seqIndex++;
+  if (STATE.seqIndex >= STATE.seqLines.length) {
+    endSequence();
+  } else {
+    showSeqLine();
+  }
+}
+
+function endSequence() {
+  closeDialogue();
+  document.getElementById("dialogue-box").onclick = closeDialogue;
+  if (STATE.seqOnComplete) {
+    const oc = STATE.seqOnComplete;
+    STATE.seqOnComplete = null;
+    if (oc.type === "pickup") {
+      if (!STATE.inventory.find(i => i.id === oc.item.id)) {
+        STATE.inventory.push(oc.item);
+        renderInventory();
+        showPickupNotification(oc.item.label);
+        showDialogue(oc.speaker, oc.text);
+        document.getElementById("dialogue-box").onclick = closeDialogue;
+      }
+    } else if (oc.type === "choice") {
+      setTimeout(openChoice, 400);
+    } else if (oc.type === "endcard") {
+      showEndCard(oc.branch);
+    } else {
+      handleThen(oc);
     }
   }
 }
 
+// ─── CHOICE SCREEN ───────────────────────────────────────────────────────────
+
+function openChoice() {
+  STATE.choiceOpen = true;
+  closeDialogue();
+  document.getElementById("choice-screen").style.display = "flex";
+}
+
+function closeChoice() {
+  STATE.choiceOpen = false;
+  const cs = document.getElementById("choice-screen");
+  if (cs) cs.style.display = "none";
+}
+
+function makeChoice(branch) {
+  closeChoice();
+  fadeOut(() => { loadScene("ending_" + branch); fadeIn(); });
+}
+
+// ─── END CARD ────────────────────────────────────────────────────────────────
+
+const END_CARDS = {
+  a: [
+    "She came back on a Tuesday.",
+    "The theatre gave her a standing ovation.",
+    "She didn't acknowledge it.",
+    "",
+    "Hector was not at the bar when I returned.",
+    "",
+    "The cat was never found."
+  ],
+  b: [
+    "I told Edvard I had no leads.",
+    "He didn't believe me.",
+    "",
+    "Somewhere past the city lights,",
+    "someone is listening to old opera",
+    "and watching the view.",
+    "",
+    "I closed the file."
+  ]
+};
+
+function showEndCard(branch) {
+  const lines = END_CARDS[branch] || [];
+  const ec = document.getElementById("end-card");
+  const et = document.getElementById("end-card-text");
+  et.innerHTML = lines.map(l => l ? `<p>${l}</p>` : "<br>").join("");
+  ec.style.display = "flex";
+  ec.style.opacity = "0";
+  setTimeout(() => { ec.style.transition = "opacity 1.5s ease"; ec.style.opacity = "1"; }, 100);
+}
+
+function closeEndCard() {
+  const ec = document.getElementById("end-card");
+  ec.style.transition = "opacity 0.8s ease";
+  ec.style.opacity = "0";
+  setTimeout(() => {
+    ec.style.display = "none";
+    goToMainMenu();
+  }, 800);
+}
+
 // ─── LIGHTBOX ────────────────────────────────────────────────────────────────
 
-function openLightbox(imageSrc) {
+function openLightbox(imageSrc, caption) {
   STATE.lightboxOpen = true;
   closeDialogue(); closeInventory();
   const lb = document.getElementById("lightbox");
   document.getElementById("lightbox-img").src = imageSrc;
+  const hint = document.getElementById("lightbox-hint");
+  if (hint && caption) hint.textContent = caption;
+  else if (hint) hint.textContent = "esc to close";
   lb.style.display = "flex";
   requestAnimationFrame(() => lb.classList.add("open"));
 }
@@ -361,9 +518,10 @@ function closeLightbox() {
 function showDialogue(speaker, text) {
   STATE.dialogueOpen = true;
   closeInventory();
-  document.getElementById("dialogue-speaker").textContent = speaker || "—";
+  document.getElementById("dialogue-speaker").textContent = speaker || "";
   document.getElementById("dialogue-text").textContent = text;
   document.getElementById("dialogue-box").style.display = "block";
+  document.getElementById("dialogue-box").onclick = closeDialogue;
 }
 
 function closeDialogue() {
@@ -374,13 +532,16 @@ function closeDialogue() {
 // ─── INVENTORY ───────────────────────────────────────────────────────────────
 
 const ITEM_ICONS = {
-  mystery_bottle: `<svg viewBox="0 0 22 22" fill="none"><path d="M8 2 h6 v3 l2 3 v10 a1.5 1.5 0 0 1-1.5 1.5 h-5 a1.5 1.5 0 0 1-1.5-1.5 V8 l2-3 Z" stroke="rgba(200,170,90,0.85)" stroke-width="1.3" fill="rgba(200,170,90,0.08)"/><line x1="7.5" y1="11" x2="14.5" y2="11" stroke="rgba(200,170,90,0.45)" stroke-width="1"/></svg>`,
-  default: `<svg viewBox="0 0 22 22" fill="none"><rect x="4" y="4" width="14" height="14" rx="2" stroke="rgba(200,170,90,0.6)" stroke-width="1.3" fill="rgba(200,170,90,0.06)"/><line x1="11" y1="7" x2="11" y2="15" stroke="rgba(200,170,90,0.5)" stroke-width="1.2" stroke-linecap="round"/><line x1="7" y1="11" x2="15" y2="11" stroke="rgba(200,170,90,0.5)" stroke-width="1.2" stroke-linecap="round"/></svg>`
+  mystery_bottle: `<svg viewBox="0 0 22 22" fill="none"><path d="M8 2h6v3l2 3v10a1.5 1.5 0 01-1.5 1.5h-5A1.5 1.5 0 018 18V8l2-3z" stroke="rgba(30,20,10,0.7)" stroke-width="1.3" fill="rgba(30,20,10,0.06)"/><line x1="7.5" y1="11" x2="14.5" y2="11" stroke="rgba(30,20,10,0.35)" stroke-width="1"/></svg>`,
+  note_h: `<svg viewBox="0 0 22 22" fill="none"><rect x="3" y="5" width="16" height="12" rx="1" stroke="rgba(30,20,10,0.7)" stroke-width="1.3" fill="rgba(30,20,10,0.05)"/><line x1="6" y1="9" x2="16" y2="9" stroke="rgba(30,20,10,0.35)" stroke-width="1"/><line x1="6" y1="12" x2="13" y2="12" stroke="rgba(30,20,10,0.35)" stroke-width="1"/></svg>`,
+  theatre_key: `<svg viewBox="0 0 22 22" fill="none"><circle cx="7" cy="9" r="4" stroke="rgba(30,20,10,0.7)" stroke-width="1.3" fill="none"/><circle cx="7" cy="9" r="1.5" stroke="rgba(30,20,10,0.4)" stroke-width="1" fill="none"/><line x1="10.5" y1="11.5" x2="18" y2="19" stroke="rgba(30,20,10,0.7)" stroke-width="1.5" stroke-linecap="round"/><line x1="15" y1="17" x2="15" y2="19.5" stroke="rgba(30,20,10,0.5)" stroke-width="1.3" stroke-linecap="round"/></svg>`,
+  box_key: `<svg viewBox="0 0 22 22" fill="none"><circle cx="6" cy="8" r="3" stroke="rgba(30,20,10,0.7)" stroke-width="1.3" fill="none"/><circle cx="6" cy="8" r="1.2" stroke="rgba(30,20,10,0.4)" stroke-width="1" fill="none"/><line x1="8.5" y1="10" x2="17" y2="18" stroke="rgba(30,20,10,0.7)" stroke-width="1.4" stroke-linecap="round"/></svg>`,
+  photograph: `<svg viewBox="0 0 22 22" fill="none"><rect x="3" y="4" width="16" height="14" rx="1" stroke="rgba(30,20,10,0.7)" stroke-width="1.3" fill="rgba(30,20,10,0.05)"/><circle cx="11" cy="10" r="3" stroke="rgba(30,20,10,0.35)" stroke-width="1" fill="none"/><line x1="3" y1="14" x2="19" y2="14" stroke="rgba(30,20,10,0.2)" stroke-width="1"/></svg>`,
+  coordinates: `<svg viewBox="0 0 22 22" fill="none"><rect x="4" y="3" width="14" height="16" rx="1" stroke="rgba(30,20,10,0.7)" stroke-width="1.3" fill="rgba(30,20,10,0.05)"/><line x1="7" y1="7" x2="15" y2="7" stroke="rgba(30,20,10,0.5)" stroke-width="1"/><line x1="7" y1="10" x2="15" y2="10" stroke="rgba(30,20,10,0.5)" stroke-width="1"/><line x1="7" y1="13" x2="12" y2="13" stroke="rgba(30,20,10,0.5)" stroke-width="1"/></svg>`,
+  default: `<svg viewBox="0 0 22 22" fill="none"><rect x="4" y="4" width="14" height="14" rx="2" stroke="rgba(30,20,10,0.6)" stroke-width="1.3" fill="rgba(30,20,10,0.04)"/></svg>`
 };
 
-function renderItemIcon(item) {
-  return ITEM_ICONS[item.id] || ITEM_ICONS["default"];
-}
+function renderItemIcon(item) { return ITEM_ICONS[item.id] || ITEM_ICONS["default"]; }
 
 function renderInventory() {
   const grid = document.getElementById("inventory-grid");
@@ -403,9 +564,7 @@ function renderInventory() {
   if (STATE.inventory.length > 0) {
     countEl.textContent = STATE.inventory.length;
     countEl.style.display = "flex";
-  } else {
-    countEl.style.display = "none";
-  }
+  } else { countEl.style.display = "none"; }
 }
 
 function toggleInventory() { STATE.inventoryOpen ? closeInventory() : openInventory(); }
@@ -427,13 +586,10 @@ function closeInventory() {
 function showPickupNotification(label) {
   const n = document.createElement("div");
   n.textContent = "+" + label;
-  n.style.cssText = "position:absolute;bottom:90px;right:80px;font-size:12px;letter-spacing:0.1em;color:rgba(200,170,90,0.95);font-family:Georgia,serif;font-style:italic;pointer-events:none;z-index:400;opacity:1;transition:opacity 0.5s ease,transform 0.5s ease;transform:translateY(0);";
+  n.style.cssText = "position:absolute;bottom:90px;right:80px;font-size:18px;letter-spacing:0.04em;color:rgba(30,20,10,0.85);font-family:'Caveat',cursive;pointer-events:none;z-index:400;opacity:1;transition:opacity 0.5s,transform 0.5s;transform:translateY(0);background:rgba(232,222,200,0.92);padding:6px 16px;box-shadow:2px 3px 0 rgba(0,0,0,0.2);";
   document.getElementById("game-container").appendChild(n);
   requestAnimationFrame(() => {
-    setTimeout(() => {
-      n.style.opacity = "0"; n.style.transform = "translateY(-16px)";
-      setTimeout(() => n.remove(), 500);
-    }, 1200);
+    setTimeout(() => { n.style.opacity="0"; n.style.transform="translateY(-16px)"; setTimeout(() => n.remove(), 500); }, 1400);
   });
 }
 
@@ -452,7 +608,7 @@ function fadeIn() {
 // ─── TOP BAR ─────────────────────────────────────────────────────────────────
 
 function goToMainMenu() {
-  closeSettings(); closeDialogue(); closeInventory(); closeLightbox();
+  closeSettings(); closeDialogue(); closeInventory(); closeLightbox(); closeChoice();
   fadeOut(() => {
     document.getElementById("title-screen").style.display = "flex";
     document.getElementById("top-bar").style.display = "none";
@@ -460,6 +616,8 @@ function goToMainMenu() {
     document.getElementById("hotspot-layer").innerHTML = "";
     document.getElementById("prop-layer").innerHTML = "";
     document.getElementById("scene-label").textContent = "";
+    const ec = document.getElementById("end-card");
+    if (ec) { ec.style.display = "none"; ec.style.opacity = "0"; }
     bgMusic.pause(); bgMusic.currentTime = 0;
     STATE.panScene = false;
     fadeIn();
@@ -474,7 +632,7 @@ function toggleSettingsPanel() {
 function updateSettingsUI() {
   ["music-toggle-btn","music-toggle-btn-ingame"].forEach(id => {
     const btn = document.getElementById(id);
-    if (btn) btn.textContent = STATE.musicEnabled ? "Music: ON" : "Music: OFF";
+    if (btn) btn.textContent = STATE.musicEnabled ? "on" : "off";
   });
   ["volume-slider","volume-slider-ingame"].forEach(id => {
     const sl = document.getElementById(id);
@@ -518,64 +676,39 @@ editorCanvas.addEventListener("mousedown", e => {
   if (!STATE.editorMode) return;
   resizeEditorCanvas();
   const r = editorCanvas.getBoundingClientRect();
-  drag = { active: true, x0: e.clientX - r.left, y0: e.clientY - r.top, x1: e.clientX - r.left, y1: e.clientY - r.top };
+  drag = { active:true, x0:e.clientX-r.left, y0:e.clientY-r.top, x1:e.clientX-r.left, y1:e.clientY-r.top };
 });
 editorCanvas.addEventListener("mousemove", e => {
   if (!STATE.editorMode || !drag.active) return;
   const r = editorCanvas.getBoundingClientRect();
-  drag.x1 = e.clientX - r.left; drag.y1 = e.clientY - r.top;
-  drawEditorRect();
+  drag.x1=e.clientX-r.left; drag.y1=e.clientY-r.top; drawEditorRect();
 });
 editorCanvas.addEventListener("mouseup", e => {
   if (!STATE.editorMode || !drag.active) return;
-  drag.active = false;
+  drag.active=false;
   const r = editorCanvas.getBoundingClientRect();
-  drag.x1 = e.clientX - r.left; drag.y1 = e.clientY - r.top;
-  drawEditorRect(); outputEditorCoords();
+  drag.x1=e.clientX-r.left; drag.y1=e.clientY-r.top; drawEditorRect(); outputEditorCoords();
 });
 
 function drawEditorRect() {
-  editorCtx.clearRect(0, 0, editorCanvas.width, editorCanvas.height);
-  const x = Math.min(drag.x0, drag.x1), y = Math.min(drag.y0, drag.y1);
-  const w = Math.abs(drag.x1 - drag.x0), h = Math.abs(drag.y1 - drag.y0);
-  editorCtx.strokeStyle = "rgba(255,200,80,0.9)"; editorCtx.lineWidth = 2;
-  editorCtx.setLineDash([6, 3]); editorCtx.strokeRect(x, y, w, h);
-  editorCtx.fillStyle = "rgba(255,200,80,0.07)"; editorCtx.fillRect(x, y, w, h);
+  editorCtx.clearRect(0,0,editorCanvas.width,editorCanvas.height);
+  const x=Math.min(drag.x0,drag.x1), y=Math.min(drag.y0,drag.y1);
+  const w=Math.abs(drag.x1-drag.x0), h=Math.abs(drag.y1-drag.y0);
+  editorCtx.strokeStyle="rgba(255,200,80,0.9)"; editorCtx.lineWidth=2;
+  editorCtx.setLineDash([6,3]); editorCtx.strokeRect(x,y,w,h);
+  editorCtx.fillStyle="rgba(255,200,80,0.07)"; editorCtx.fillRect(x,y,w,h);
 }
 
 function outputEditorCoords() {
-  // For pan scenes, convert screen coords to image % coords
   const isPan = STATE.panScene;
   const W = isPan ? getScaledImageWidth() : editorCanvas.width;
   const H = editorCanvas.height;
-
-  let x0 = Math.min(drag.x0, drag.x1);
-  let x1 = Math.max(drag.x0, drag.x1);
-
-  if (isPan) {
-    // Adjust for pan offset
-    x0 += STATE.panX;
-    x1 += STATE.panX;
-  }
-
-  const x = Math.round(x0 / W * 100);
-  const y = Math.round(Math.min(drag.y0, drag.y1) / H * 100);
-  const w = Math.round((x1 - x0) / W * 100);
-  const h = Math.round(Math.abs(drag.y1 - drag.y0) / H * 100);
-
-  document.getElementById("editor-coords").innerHTML = `x: ${x}%&nbsp;&nbsp;y: ${y}%<br>width: ${w}%&nbsp;&nbsp;height: ${h}%`;
-  document.getElementById("editor-json").textContent =
-`{
-  "id": "hotspot_name",
-  "label": "What is it?",
-  "x": ${x}, "y": ${y},
-  "width": ${w}, "height": ${h},
-  "action": {
-    "type": "dialogue",
-    "speaker": "You",
-    "text": "Describe what you see."
-  }
-}`;
+  let x0=Math.min(drag.x0,drag.x1), x1=Math.max(drag.x0,drag.x1);
+  if (isPan) { x0+=STATE.panX; x1+=STATE.panX; }
+  const x=Math.round(x0/W*100), y=Math.round(Math.min(drag.y0,drag.y1)/H*100);
+  const w=Math.round((x1-x0)/W*100), h=Math.round(Math.abs(drag.y1-drag.y0)/H*100);
+  document.getElementById("editor-coords").innerHTML=`x: ${x}%&nbsp;&nbsp;y: ${y}%<br>width: ${w}%&nbsp;&nbsp;height: ${h}%`;
+  document.getElementById("editor-json").textContent=`{\n  "id": "hotspot_name",\n  "label": "What is it?",\n  "x": ${x}, "y": ${y},\n  "width": ${w}, "height": ${h},\n  "action": {\n    "type": "dialogue",\n    "speaker": "You",\n    "text": "Describe what you see."\n  }\n}`;
 }
 
 // ─── INPUT ───────────────────────────────────────────────────────────────────
@@ -584,7 +717,7 @@ document.addEventListener("keydown", e => {
   if (e.key === "ArrowLeft")  { STATE.panKeys.left  = true; if (STATE.panScene) e.preventDefault(); }
   if (e.key === "ArrowRight") { STATE.panKeys.right = true; if (STATE.panScene) e.preventDefault(); }
   if (e.key === "e" || e.key === "E") toggleEditor();
-  if (e.key === "Escape") { closeDialogue(); closeSettings(); closeInventory(); closeLightbox(); }
+  if (e.key === "Escape") { closeDialogue(); closeSettings(); closeInventory(); closeLightbox(); closeChoice(); }
   if (e.key === "i" || e.key === "I") toggleInventory();
 });
 document.addEventListener("keyup", e => {
@@ -594,7 +727,7 @@ document.addEventListener("keyup", e => {
 
 document.addEventListener("mousemove", e => {
   const c = document.getElementById("custom-cursor");
-  if (c) { c.style.left = e.clientX + "px"; c.style.top = e.clientY + "px"; }
+  if (c) { c.style.left = e.clientX+"px"; c.style.top = e.clientY+"px"; }
 });
 
 document.addEventListener("click", e => {

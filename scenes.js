@@ -1,10 +1,10 @@
 // scenes.js — The Mystery of Brita Svani
-// THIS is your content file. engine.js handles all logic — never touch that.
-// To swap a background: replace the image file keeping the same filename.
+// Content file. engine.js handles all logic.
+// Swap backgrounds by replacing the image file — no code changes needed.
 
 const SCENES = {
 
-  // ── THE STREET (pan scene) ────────────────────────────────────────────────
+  // ── STREET (pan) ──────────────────────────────────────────────────────────
   exterior: {
     id: "exterior",
     name: "The Street",
@@ -16,13 +16,13 @@ const SCENES = {
       {
         id: "apartment_entrance",
         label: "Brita's Apartment",
-        x: 70, y: 38, width: 6, height: 23,
+        x: 64, y: 38, width: 7, height: 23,
         action: { type: "scene", target: "living_room" }
       },
       {
         id: "cafe_entrance",
         label: "Mamma Cale's",
-        x: 51, y: 48, width: 10, height: 31,
+        x: 41, y: 47, width: 11, height: 28,
         action: { type: "scene", target: "cafe" }
       },
       {
@@ -44,13 +44,52 @@ const SCENES = {
         action: {
           type: "dialogue",
           speaker: "You",
-          text: "Locked. The keyhole looks like it belongs to something specific. I don't have it yet."
+          text: "Locked. Looks like we're too early out."
+        }
+      },
+      {
+        id: "feelianco_travel",
+        label: "Drive to Feelianco",
+        x: 85, y: 30, width: 12, height: 40,
+        action: {
+          type: "conditional",
+          requiresItem: "coordinates",
+          speaker: "You",
+          textSuccess: "67 degrees north. Past the city lights, up the hill. I get in the car.",
+          textFail: "I don't have anywhere to go yet.",
+          then: { type: "scene", target: "feelianco" }
         }
       }
     ]
   },
 
-  // ── BRITA'S LIVING ROOM ───────────────────────────────────────────────────
+  // ── CABIN ─────────────────────────────────────────────────────────────────
+  cabin: {
+    id: "cabin",
+    name: "The Hill",
+    background: "assets/backgrounds/start_frame.png",
+    props: [],
+    hotspots: [
+      {
+        id: "mailbox",
+        label: "Mailbox",
+        x: 8, y: 45, width: 10, height: 20,
+        action: {
+          type: "lightbox",
+          image: "assets/ui/note_edvard_letter.png",
+          caption: "A key falls out when you unfold it. Old brass. You look out at the city. First case in three months. You get in the car."
+        }
+      },
+      {
+        id: "cabin_city",
+        label: "Go to Town",
+        x: 55, y: 25, width: 42, height: 50,
+        action: { type: "scene", target: "exterior" }
+      }
+    ]
+  },
+
+  // ── APARTMENT ─────────────────────────────────────────────────────────────
   living_room: {
     id: "living_room",
     name: "Brita's Apartment",
@@ -66,17 +105,17 @@ const SCENES = {
       {
         id: "big_window",
         label: "Back to the Street",
-        x: 38, y: 22, width: 41, height: 50,
+        x: 37, y: 23, width: 49, height: 49,
         action: { type: "scene", target: "exterior" }
       },
       {
-        id: "table",
-        label: "Coffee Table",
-        x: 45, y: 72, width: 18, height: 15,
+        id: "bar_cart",
+        label: "Bar Cart",
+        x: 2, y: 44, width: 13, height: 40,
         action: {
           type: "dialogue",
           speaker: "You",
-          text: "Two glasses. One with a lipstick mark. The candles burned down to nothing. Someone was here with her."
+          text: "Two thirds empty. Someone was here after the play."
         }
       },
       {
@@ -86,22 +125,73 @@ const SCENES = {
         action: {
           type: "pickup",
           removesProp: "bottle_prop",
-          item: { id: "mystery_bottle", label: "Mysterious Bottle" },
+          item: { id: "mystery_bottle", label: "Brita's Bottle" },
           speaker: "You",
-          text: "Something dark inside. Could be cognac, could be a regret from 1987. I take it.",
+          text: "Something dark inside. Could be cognac. I take it.",
           alreadyTaken: "Already taken care of."
+        }
+      },
+      {
+        id: "coffee_table",
+        label: "Coffee Table",
+        x: 43, y: 60, width: 22, height: 20,
+        action: {
+          type: "dialogue",
+          speaker: "You",
+          text: "Two glasses. One with a lipstick mark. The candles burned down to nothing. Someone was here with her."
+        }
+      },
+      {
+        id: "zebra_rug",
+        label: "Rug",
+        x: 38, y: 75, width: 30, height: 14,
+        action: {
+          type: "pickup",
+          item: { id: "note_h", label: "Note from H" },
+          speaker: "You",
+          text: "A note under the rug. \"The key is in the usual place. Don't be late. — H.\" Who is H.",
+          alreadyTaken: "\"The key is in the usual place. Don't be late. — H.\" Still don't know who H is.",
+          showLightbox: "assets/ui/note_hector.png"
+        }
+      },
+      {
+        id: "theatre_key_cabinet",
+        label: "Cabinet",
+        x: 77, y: 55, width: 8, height: 25,
+        action: {
+          type: "pickup",
+          item: { id: "theatre_key", label: "Theatre Key" },
+          speaker: "You",
+          text: "A key. Old brass, well-used. It has to go somewhere.",
+          alreadyTaken: "I already have the key."
         }
       },
       {
         id: "cat_portrait",
         label: "Cat Portrait",
-        x: 29, y: 22, width: 7, height: 18,
-        action: { type: "lightbox", image: "assets/ui/cat_portrait.png" }
+        x: 28.5, y: 22, width: 8, height: 18,
+        action: {
+          type: "lightbox",
+          image: "assets/ui/cat_portrait.png",
+          caption: "Cat's not here either. Strange."
+        }
+      },
+      {
+        // Second visit only — Edward's note
+        id: "edwards_note_floor",
+        label: "Note on the floor",
+        x: 18, y: 82, width: 12, height: 10,
+        requiresItem: "coordinates",
+        action: {
+          type: "lightbox",
+          image: "assets/ui/note_edward_midgame.png",
+          caption: "He's running out of patience. I should find her before he does something stupid."
+        }
       }
     ]
   },
 
-  // ── MAMMA CALE'S CAFÉ (pan scene) ────────────────────────────────────────
+  // ── CAFÉ (pan) ────────────────────────────────────────────────────────────
   cafe: {
     id: "cafe",
     name: "Mamma Cale's",
@@ -130,35 +220,45 @@ const SCENES = {
         action: {
           type: "dialogue",
           speaker: "Bartender",
-          text: "We're closing soon. You want something or are you just here to stand there?"
+          text: "Everybody knew her."
         }
       },
       {
-        id: "drunk_man",
+        id: "drunk_man_sober",
         label: "Man at the Bar",
-        x: 40, y: 37, width: 13, height: 31,
+        x: 36, y: 28, width: 12, height: 48,
         action: {
-          type: "dialogue",
-          speaker: "Drunk Man",
-          text: "He's mumbling into his glass. I can't make out a word. Maybe if I had a drink myself."
+          type: "conditional",
+          requiresItem: "mystery_bottle",
+          speaker: "You",
+          textFail: "He's somewhere between asleep and somewhere else entirely. Not going to get much from him like this.",
+          textSuccess: "I set the bottle on the bar.",
+          then: { type: "scene", target: "bar" }
         }
       },
       {
         id: "take_a_seat",
         label: "Take a Seat",
         x: 36, y: 70, width: 18, height: 25,
-        action: { type: "scene", target: "bar" }
+        action: {
+          type: "conditional",
+          requiresItem: "mystery_bottle",
+          speaker: "You",
+          textFail: "I should have something to offer before I sit down.",
+          textSuccess: "I set the bottle on the bar. He opens one eye.",
+          then: { type: "scene", target: "bar" }
+        }
       },
       {
         id: "brita_friends",
         label: "Talk to Brita's Friends",
-        x: 72, y: 39, width: 14, height: 34,
+        x: 58, y: 30, width: 30, height: 45,
         action: { type: "scene", target: "ladies" }
       }
     ]
   },
 
-  // ── LADIES TABLE ─────────────────────────────────────────────────────────
+  // ── LADIES TABLE ──────────────────────────────────────────────────────────
   ladies: {
     id: "ladies",
     name: "Brita's Friends",
@@ -168,43 +268,67 @@ const SCENES = {
       {
         id: "ladies_exit",
         label: "Back to the Café",
-        x: 0, y: 16, width: 8, height: 69,
+        x: 0, y: 0, width: 10, height: 100,
         action: { type: "scene", target: "cafe" }
       },
       {
-        id: "lady_left",
-        label: "Talk",
-        x: 14, y: 17, width: 15, height: 64,
+        id: "lotte",
+        label: "Lotte",
+        x: 5, y: 8, width: 28, height: 75,
         action: {
-          type: "dialogue",
-          speaker: "Brita's Friend",
-          text: "She seemed perfectly fine at the show. Laughing, drinking. That's Brita. Then she was just — gone."
+          type: "dialogue_sequence",
+          lines: [
+            { speaker: "You", text: "You were with Brita the night she disappeared?" },
+            { speaker: "Lotte", text: "We were all at the premiere. She was wonderful. Radiant. I've never seen her so present. Like she'd decided something." },
+            { speaker: "You", text: "Decided what?" },
+            { speaker: "Lotte", text: "I don't know. She just seemed... light. That night she wasn't performing. Isn't that strange? That's the strangest part to me." },
+            { speaker: "You", text: "Did she leave with anyone?" },
+            { speaker: "Lotte", text: "She was talking to someone at the bar. An older man. I didn't recognise him." },
+            { speaker: "You", text: "What did they talk about?" },
+            { speaker: "Lotte", text: "I couldn't hear. But she was laughing. Really laughing." }
+          ]
         }
       },
       {
-        id: "lady_centre",
-        label: "Talk",
-        x: 36, y: 13, width: 16, height: 61,
+        id: "mette",
+        label: "Mette",
+        x: 35, y: 5, width: 28, height: 75,
         action: {
-          type: "dialogue",
-          speaker: "Brita's Friend",
-          text: "She bought a house somewhere. Mentioned it once, weeks ago. I didn't think anything of it. Brita was always talking about leaving."
+          type: "dialogue_sequence",
+          lines: [
+            { speaker: "You", text: "When did you last see Brita?" },
+            { speaker: "Mette", text: "After the second act. She was a wreck. Absolutely beside herself backstage. I said to Regitte, she's not well. Nobody listened." },
+            { speaker: "You", text: "A wreck how?" },
+            { speaker: "Mette", text: "Crying. Shaking. This is not a woman who just wanders off, you understand. Something happened." },
+            { speaker: "You", text: "Did she say anything?" },
+            { speaker: "Mette", text: "She said \"I can't do this anymore.\" I remember it exactly." },
+            { speaker: "You", text: "Do this... the show?" },
+            { speaker: "Mette", text: "Everything. All of it. She's been saying it for years but this time it was different." }
+          ]
         }
       },
       {
-        id: "lady_right",
-        label: "Talk",
-        x: 70, y: 10, width: 17, height: 70,
+        id: "regitte",
+        label: "Regitte",
+        x: 68, y: 8, width: 27, height: 75,
         action: {
-          type: "dialogue",
-          speaker: "Brita's Friend",
-          text: "Ask the man at the bar. He and Brita had words that night. I saw them."
+          type: "dialogue_sequence",
+          lines: [
+            { speaker: "You", text: "Are you worried about her?" },
+            { speaker: "Regitte", text: "Yes. Terribly. She owes me money, actually, but that's not... that's not why I'm worried." },
+            { speaker: "You", text: "What happened after the show?" },
+            { speaker: "Regitte", text: "I saw her outside. In the alley. She was talking to someone. A man. I didn't see his face. She had her coat on already." },
+            { speaker: "You", text: "The alley behind the theatre?" },
+            { speaker: "Regitte", text: "Yes. The backdoor. She had a key to that door. She always used it. Said the front entrance was for people who needed to be seen." },
+            { speaker: "You", text: "Did they argue?" },
+            { speaker: "Regitte", text: "He touched her face. She let him. That's all I saw." }
+          ]
         }
       }
     ]
   },
 
-  // ── BAR CLOSE-UP ─────────────────────────────────────────────────────────
+  // ── BAR CLOSE-UP ──────────────────────────────────────────────────────────
   bar: {
     id: "bar",
     name: "At the Bar",
@@ -228,41 +352,72 @@ const SCENES = {
         }
       },
       {
-        id: "drunk_man_close",
-        label: "Drunk Man",
+        id: "hector",
+        label: "Hector",
         x: 58, y: 8, width: 38, height: 85,
         action: {
-          type: "dialogue",
-          speaker: "Drunk Man",
-          text: "She was unhappy. Long time. Last week she said she bought something. A house. Out in Feelianco. Far out. Nobody goes there anymore."
+          type: "dialogue_sequence",
+          lines: [
+            { speaker: "Hector", text: "...That's hers." },
+            { speaker: "You", text: "You knew her." },
+            { speaker: "Hector", text: "Knew. Know. She's not dead, if that's what they're saying." },
+            { speaker: "You", text: "Where is she?" },
+            { speaker: "Hector", text: "We used to go to a place. When we were young. When everything was still possible. She called it the end of the world. I called it Tuesday." },
+            { speaker: "You", text: "Where?" },
+            { speaker: "Hector", text: "Feelianco. Past the city lights, up the hill, past the old wall. She bought something out there. A ruin. Said she was going to fix it up. She's been saying that for forty years." },
+            { speaker: "You", text: "The note in her apartment. H. That was you." },
+            { speaker: "Hector", text: "She told me she was going. The night of the play. Said she was done. I gave her the key to the backdoor. She needed to get her things from the wardrobe without anyone making a scene." },
+            { speaker: "You", text: "Her things. There's a box." },
+            { speaker: "Hector", text: "She forgot it. Or she left it on purpose. With her, you never know." },
+            { speaker: "You", text: "Why didn't you tell anyone?" },
+            { speaker: "Hector", text: "She asked me not to. First time she ever asked me for anything." }
+          ],
+          onComplete: {
+            type: "pickup",
+            item: { id: "box_key", label: "Box Key" },
+            speaker: "Hector",
+            text: "Here. The key to the box. Maybe you can get to her before I do something I'll regret."
+          }
         }
       }
     ]
   },
 
-  // ── BACK ALLEY ───────────────────────────────────────────────────────────
+  // ── BACK ALLEY ────────────────────────────────────────────────────────────
   alley: {
     id: "alley",
     name: "The Back Alley",
     background: "assets/backgrounds/alley.jpg",
+    onEnter: {
+      type: "dialogue",
+      speaker: "You",
+      text: "Something moved. White. Gone now."
+    },
     props: [],
     hotspots: [
       {
         id: "alley_exit",
         label: "Back to the Street",
-        x: 27, y: 16, width: 13, height: 61,
+        x: 0, y: 30, width: 12, height: 60,
         action: { type: "scene", target: "exterior" }
       },
       {
         id: "theatre_backdoor",
         label: "Theatre Backdoor",
-        x: 40, y: 49, width: 6, height: 38,
-        action: { type: "scene", target: "wardrobe" }
+        x: 30, y: 20, width: 25, height: 65,
+        action: {
+          type: "conditional",
+          requiresItem: "theatre_key",
+          speaker: "You",
+          textSuccess: "The key fits. Of course it does.",
+          textFail: "Closed. Maybe Brita has a key.",
+          then: { type: "scene", target: "wardrobe" }
+        }
       }
     ]
   },
 
-  // ── THEATRE WARDROBE ─────────────────────────────────────────────────────
+  // ── WARDROBE ──────────────────────────────────────────────────────────────
   wardrobe: {
     id: "wardrobe",
     name: "Theatre Wardrobe",
@@ -272,44 +427,160 @@ const SCENES = {
       {
         id: "wardrobe_exit",
         label: "Back Outside",
-        x: 2, y: 12, width: 11, height: 79,
+        x: 0, y: 0, width: 7, height: 100,
         action: { type: "scene", target: "alley" }
       },
       {
         id: "mirror",
         label: "Dressing Mirror",
-        x: 25, y: 20, width: 17, height: 32,
+        x: 17, y: 10, width: 28, height: 65,
         action: {
           type: "dialogue",
           speaker: "You",
-          text: "A silhouette in the mirror. For a second I thought someone was still here. Just the light playing tricks."
+          text: "This is not helping the case."
         }
       },
       {
-        id: "wardrobe_cabinet",
-        label: "Costume Cabinet",
-        x: 54, y: 54, width: 24, height: 39,
+        id: "costumes",
+        label: "Costumes",
+        x: 82, y: 5, width: 16, height: 80,
         action: {
           type: "dialogue",
           speaker: "You",
-          text: "Costumes from a dozen productions. She would have touched every one of these. Thirty years of work hanging in the dark."
+          text: "Thirty years of productions hanging in the dark. She touched every one of these."
+        }
+      },
+      {
+        id: "wooden_box",
+        label: "Wooden Box",
+        x: 8, y: 55, width: 10, height: 22,
+        action: {
+          type: "conditional",
+          requiresItem: "box_key",
+          speaker: "You",
+          textFail: "A wooden box. Old. Locked. She wasn't leaving this behind on accident.",
+          textSuccess: "Stones. Letters. A pair of earrings. And a photograph.",
+          showLightboxOnSuccess: "assets/ui/photograph_coordinates.png",
+          then: {
+            type: "pickup",
+            item: { id: "coordinates", label: "Coordinates" },
+            speaker: "You",
+            text: "Feelianco. That's where she went."
+          }
+        }
+      },
+      {
+        id: "photograph_drawer",
+        label: "Drawer",
+        x: 60, y: 45, width: 18, height: 30,
+        action: {
+          type: "pickup",
+          item: { id: "photograph", label: "Photograph" },
+          speaker: "You",
+          text: "Two people on a hill. Young. Happy in the way people are before they know what's coming. On the back: \"Feelianco, 1987.\" Isn't that the man from the bar?",
+          alreadyTaken: "The man from the bar. Feelianco, 1987.",
+          showLightbox: "assets/ui/photograph_young.png"
         }
       }
     ]
   },
 
-  // ── DETECTIVE'S CABIN ────────────────────────────────────────────────────
-  cabin: {
-    id: "cabin",
-    name: "The Hill",
-    background: "assets/backgrounds/start_frame.png",
+  // ── FEELIANCO ─────────────────────────────────────────────────────────────
+  feelianco: {
+    id: "feelianco",
+    name: "Feelianco",
+    background: "assets/backgrounds/feelianco.jpg",
     props: [],
     hotspots: [
       {
-        id: "cabin_city",
-        label: "Go Back to Town",
-        x: 55, y: 25, width: 42, height: 50,
-        action: { type: "scene", target: "exterior" }
+        id: "brita_hammock",
+        label: "Brita",
+        x: 25, y: 30, width: 45, height: 55,
+        action: {
+          type: "dialogue_sequence",
+          lines: [
+            { speaker: "Brita", text: "I wondered how long it would take." },
+            { speaker: "You", text: "Edvard hired me." },
+            { speaker: "Brita", text: "Of course he did. Are you going to tell him?" }
+          ],
+          onComplete: { type: "choice" }
+        }
+      },
+      {
+        id: "record_player",
+        label: "Record Player",
+        x: 42, y: 62, width: 16, height: 24,
+        action: {
+          type: "dialogue",
+          speaker: "You",
+          text: "An old record player. Opera. The needle's been on this record a long time."
+        }
+      },
+      {
+        id: "city_view",
+        label: "The City",
+        x: 10, y: 5, width: 80, height: 30,
+        action: {
+          type: "dialogue",
+          speaker: "You",
+          text: "The city is just a smudge of light from here. From a distance it looks almost peaceful."
+        }
+      }
+    ]
+  },
+
+  // ── ENDING — BRANCH A ─────────────────────────────────────────────────────
+  ending_a: {
+    id: "ending_a",
+    name: "Feelianco",
+    background: "assets/backgrounds/ending_brita.jpg",
+    props: [],
+    hotspots: [
+      {
+        id: "brita_ending_a",
+        label: "Brita",
+        x: 25, y: 25, width: 50, height: 65,
+        action: {
+          type: "dialogue_sequence",
+          lines: [
+            { speaker: "You", text: "He deserves to know you're safe." },
+            { speaker: "Brita", text: "Safe. Yes, I suppose I am." },
+            { speaker: "You", text: "He's frightened. Whatever complicated thing is between you, he loves you." },
+            { speaker: "Brita", text: "Edvard loves the idea of me. The successful older sister who makes him look good by comparison." },
+            { speaker: "Brita", text: "But you're right. That's still a kind of love. Give me a week. I'll come back on my own terms. Not because I was found." },
+            { speaker: "Brita", text: "Edvard. It's me. I'm alive. Tell the detective thank you." },
+            { speaker: "Brita", text: "You can go now. The case is closed." }
+          ],
+          onComplete: { type: "endcard", branch: "a" }
+        }
+      }
+    ]
+  },
+
+  // ── ENDING — BRANCH B ─────────────────────────────────────────────────────
+  ending_b: {
+    id: "ending_b",
+    name: "Feelianco",
+    background: "assets/backgrounds/ending_brita.jpg",
+    props: [],
+    hotspots: [
+      {
+        id: "brita_ending_b",
+        label: "Brita",
+        x: 25, y: 25, width: 50, height: 65,
+        action: {
+          type: "dialogue_sequence",
+          lines: [
+            { speaker: "You", text: "I'll tell Edvard it's a lost case." },
+            { speaker: "Brita", text: "You'd do that?" },
+            { speaker: "You", text: "It's not my job to bring people back who don't want to be brought back." },
+            { speaker: "Brita", text: "No. I suppose it isn't." },
+            { speaker: "You", text: "Is there anything you want me to tell him?" },
+            { speaker: "Brita", text: "Tell him I was happy. He won't believe it, but tell him anyway." },
+            { speaker: "Brita", text: "Detective. Thank you for not asking me why." }
+          ],
+          onComplete: { type: "endcard", branch: "b" }
+        }
       }
     ]
   }
