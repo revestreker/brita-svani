@@ -109,11 +109,12 @@ function loadScene(sceneId) {
     bg.style.maxWidth = "none";
     bg.style.transform = "";
     bg.onload = () => {
+      // Recalculate using real image dimensions AFTER load
       const maxPan = getMaxPan();
       const startFrac = scene.panStart !== undefined ? scene.panStart : 0;
       STATE.panX = startFrac * maxPan;
       STATE.panTarget = STATE.panX;
-      renderHotspots(scene);
+      renderHotspots(scene); // Must run after load so getScaledImageWidth() is accurate
       applyPan();
     };
   } else {
@@ -154,11 +155,17 @@ function loadScene(sceneId) {
   renderProps(scene);
   renderInventory();
 
-  // onEnter trigger (e.g. cat sighting in alley)
+  // onEnter trigger
   if (scene.onEnter && firstVisit) {
     setTimeout(() => {
-      if (scene.onEnter.type === "dialogue") showDialogue(scene.onEnter.speaker, scene.onEnter.text);
+      if (scene.onEnter.type === "dialogue") {
+        showDialogue(scene.onEnter.speaker, scene.onEnter.text);
+      } else if (scene.onEnter.type === "dialogue_sequence_auto") {
+        startSequence(scene.onEnter.lines, scene.onEnter.onComplete);
+      }
     }, 600);
+  } else if (scene.onEnter && scene.onEnter.type === "dialogue_sequence_auto" && !firstVisit) {
+    // On repeat visits to ending scene, just open choice if not already done
   }
 
   // Auto-save
@@ -176,9 +183,10 @@ function loadScene(sceneId) {
 
 function getScaledImageWidth() {
   const bg = document.getElementById("background");
-  const nw = bg.naturalWidth || 3552;
-  const nh = bg.naturalHeight || 1693;
-  return nw * (window.innerHeight / nh);
+  // Use actual loaded dimensions — no hardcoded fallback
+  // If image not loaded yet, return viewport width as safe default
+  if (!bg.naturalWidth) return window.innerWidth;
+  return bg.naturalWidth * (window.innerHeight / bg.naturalHeight);
 }
 
 function getMaxPan() { return Math.max(0, getScaledImageWidth() - window.innerWidth); }
@@ -348,17 +356,30 @@ function triggerHotspot(hs) {
     if (hasItem) {
       if (action.showLightboxOnSuccess) {
         openLightbox(action.showLightboxOnSuccess, action.textSuccess);
-        if (action.then) setTimeout(() => handleThen(action.then), 600);
-      } else {
+        if (action.then) setTimeout(() => handleThen(action.then), 800);
+      } else if (action.textSuccess) {
         showDialogue(action.speaker, action.textSuccess);
         if (action.then) setTimeout(() => handleThen(action.then), 1600);
       }
     } else {
-      showDialogue(action.speaker, action.textFail);
+      // textFail_sequence allows a sequence to play when condition NOT met
+      if (action.textFail_sequence) {
+        const seq = action.textFail_sequence;
+        if (seq.type === "dialogue_sequence") {
+          startSequence(seq.lines, seq.onComplete);
+        } else if (seq.type === "photograph_flip") {
+          openPhotographFlip(seq.imageFront, seq.imageBack, seq.captionFront, seq.captionBack, seq.then);
+        }
+      } else if (action.textFail) {
+        showDialogue(action.speaker, action.textFail);
+      }
     }
 
   } else if (action.type === "choice") {
     openChoice();
+  } else if (action.type === "photograph_flip") {
+    // Show front of photo, clicking it flips to back (coordinates)
+    openPhotographFlip(action.imageFront, action.imageBack, action.captionFront, action.captionBack, action.then);
   }
 }
 
@@ -393,7 +414,8 @@ function showSeqLine() {
   showDialogue(line.speaker, line.text);
   STATE.dialogueOpen = true;
   // Override click to advance sequence
-  document.getElementById("dialogue-box").onclick = advanceSequence;
+  const box = document.getElementById("dialogue-box");
+  box.onclick = (e) => { e.stopPropagation(); advanceSequence(); };
 }
 
 function advanceSequence() {
@@ -407,7 +429,7 @@ function advanceSequence() {
 
 function endSequence() {
   closeDialogue();
-  document.getElementById("dialogue-box").onclick = closeDialogue;
+  document.getElementById("dialogue-box").onclick = (e) => { e.stopPropagation(); closeDialogue(); };
   if (STATE.seqOnComplete) {
     const oc = STATE.seqOnComplete;
     STATE.seqOnComplete = null;
@@ -430,6 +452,40 @@ function endSequence() {
 }
 
 // ─── CHOICE SCREEN ───────────────────────────────────────────────────────────
+
+// ─── PHOTOGRAPH FLIP ─────────────────────────────────────────────────────────
+// Two-sided photograph: click front → shows back (coordinates)
+
+let flipState = { active: false, imageFront: null, imageBack: null, showingBack: false, pendingThen: null };
+
+function openPhotographFlip(imageFront, imageBack, captionFront, captionBack, then) {
+  flipState = { active: true, imageFront, imageBack, showingBack: false, captionFront, captionBack, pendingThen: then || null };
+  openLightbox(imageFront, captionFront + " — click the edge to turn over");
+  // Override lightbox click to flip rather than close
+  document.getElementById("lightbox").onclick = flipPhotograph;
+}
+
+function flipPhotograph(e) {
+  e.stopPropagation();
+  if (!flipState.active) return;
+  if (!flipState.showingBack) {
+    flipState.showingBack = true;
+    document.getElementById("lightbox-img").src = flipState.imageBack;
+    const hint = document.getElementById("lightbox-hint");
+    if (hint) hint.textContent = flipState.captionBack + " — click to close";
+    // Next click closes and triggers then
+    document.getElementById("lightbox").onclick = (ev) => {
+      ev.stopPropagation();
+      flipState.active = false;
+      document.getElementById("lightbox").onclick = () => closeLightbox();
+      closeLightbox();
+      if (flipState.pendingThen) {
+        setTimeout(() => handleThen(flipState.pendingThen), 400);
+        flipState.pendingThen = null;
+      }
+    };
+  }
+}
 
 function openChoice() {
   STATE.choiceOpen = true;
@@ -532,13 +588,13 @@ function closeDialogue() {
 // ─── INVENTORY ───────────────────────────────────────────────────────────────
 
 const ITEM_ICONS = {
-  mystery_bottle: `<svg viewBox="0 0 22 22" fill="none"><path d="M8 2h6v3l2 3v10a1.5 1.5 0 01-1.5 1.5h-5A1.5 1.5 0 018 18V8l2-3z" stroke="rgba(30,20,10,0.7)" stroke-width="1.3" fill="rgba(30,20,10,0.06)"/><line x1="7.5" y1="11" x2="14.5" y2="11" stroke="rgba(30,20,10,0.35)" stroke-width="1"/></svg>`,
-  note_h: `<svg viewBox="0 0 22 22" fill="none"><rect x="3" y="5" width="16" height="12" rx="1" stroke="rgba(30,20,10,0.7)" stroke-width="1.3" fill="rgba(30,20,10,0.05)"/><line x1="6" y1="9" x2="16" y2="9" stroke="rgba(30,20,10,0.35)" stroke-width="1"/><line x1="6" y1="12" x2="13" y2="12" stroke="rgba(30,20,10,0.35)" stroke-width="1"/></svg>`,
-  theatre_key: `<svg viewBox="0 0 22 22" fill="none"><circle cx="7" cy="9" r="4" stroke="rgba(30,20,10,0.7)" stroke-width="1.3" fill="none"/><circle cx="7" cy="9" r="1.5" stroke="rgba(30,20,10,0.4)" stroke-width="1" fill="none"/><line x1="10.5" y1="11.5" x2="18" y2="19" stroke="rgba(30,20,10,0.7)" stroke-width="1.5" stroke-linecap="round"/><line x1="15" y1="17" x2="15" y2="19.5" stroke="rgba(30,20,10,0.5)" stroke-width="1.3" stroke-linecap="round"/></svg>`,
-  box_key: `<svg viewBox="0 0 22 22" fill="none"><circle cx="6" cy="8" r="3" stroke="rgba(30,20,10,0.7)" stroke-width="1.3" fill="none"/><circle cx="6" cy="8" r="1.2" stroke="rgba(30,20,10,0.4)" stroke-width="1" fill="none"/><line x1="8.5" y1="10" x2="17" y2="18" stroke="rgba(30,20,10,0.7)" stroke-width="1.4" stroke-linecap="round"/></svg>`,
-  photograph: `<svg viewBox="0 0 22 22" fill="none"><rect x="3" y="4" width="16" height="14" rx="1" stroke="rgba(30,20,10,0.7)" stroke-width="1.3" fill="rgba(30,20,10,0.05)"/><circle cx="11" cy="10" r="3" stroke="rgba(30,20,10,0.35)" stroke-width="1" fill="none"/><line x1="3" y1="14" x2="19" y2="14" stroke="rgba(30,20,10,0.2)" stroke-width="1"/></svg>`,
-  coordinates: `<svg viewBox="0 0 22 22" fill="none"><rect x="4" y="3" width="14" height="16" rx="1" stroke="rgba(30,20,10,0.7)" stroke-width="1.3" fill="rgba(30,20,10,0.05)"/><line x1="7" y1="7" x2="15" y2="7" stroke="rgba(30,20,10,0.5)" stroke-width="1"/><line x1="7" y1="10" x2="15" y2="10" stroke="rgba(30,20,10,0.5)" stroke-width="1"/><line x1="7" y1="13" x2="12" y2="13" stroke="rgba(30,20,10,0.5)" stroke-width="1"/></svg>`,
-  default: `<svg viewBox="0 0 22 22" fill="none"><rect x="4" y="4" width="14" height="14" rx="2" stroke="rgba(30,20,10,0.6)" stroke-width="1.3" fill="rgba(30,20,10,0.04)"/></svg>`
+  mystery_bottle: `<svg viewBox="0 0 22 22" fill="none"><path d="M8 2h6v3l2 3v10a1.5 1.5 0 01-1.5 1.5h-5A1.5 1.5 0 018 18V8l2-3z" stroke="rgba(232,218,185,0.9)" stroke-width="1.3" fill="rgba(232,218,185,0.08)"/><line x1="7.5" y1="11" x2="14.5" y2="11" stroke="rgba(232,218,185,0.5)" stroke-width="1"/></svg>`,
+  note_h: `<svg viewBox="0 0 22 22" fill="none"><rect x="3" y="5" width="16" height="12" rx="1" stroke="rgba(232,218,185,0.9)" stroke-width="1.3" fill="rgba(232,218,185,0.08)"/><line x1="6" y1="9" x2="16" y2="9" stroke="rgba(232,218,185,0.5)" stroke-width="1"/><line x1="6" y1="12" x2="13" y2="12" stroke="rgba(232,218,185,0.5)" stroke-width="1"/></svg>`,
+  theatre_key: `<svg viewBox="0 0 22 22" fill="none"><circle cx="7" cy="9" r="4" stroke="rgba(232,218,185,0.9)" stroke-width="1.3" fill="none"/><circle cx="7" cy="9" r="1.5" stroke="rgba(232,218,185,0.5)" stroke-width="1" fill="none"/><line x1="10.5" y1="11.5" x2="18" y2="19" stroke="rgba(232,218,185,0.9)" stroke-width="1.5" stroke-linecap="round"/><line x1="15" y1="17" x2="15" y2="19.5" stroke="rgba(232,218,185,0.6)" stroke-width="1.3" stroke-linecap="round"/></svg>`,
+  box_key: `<svg viewBox="0 0 22 22" fill="none"><circle cx="6" cy="8" r="3" stroke="rgba(232,218,185,0.9)" stroke-width="1.3" fill="none"/><circle cx="6" cy="8" r="1.2" stroke="rgba(232,218,185,0.5)" stroke-width="1" fill="none"/><line x1="8.5" y1="10" x2="17" y2="18" stroke="rgba(232,218,185,0.9)" stroke-width="1.4" stroke-linecap="round"/></svg>`,
+  photograph: `<svg viewBox="0 0 22 22" fill="none"><rect x="3" y="4" width="16" height="14" rx="1" stroke="rgba(232,218,185,0.9)" stroke-width="1.3" fill="rgba(232,218,185,0.06)"/><circle cx="11" cy="10" r="3" stroke="rgba(232,218,185,0.45)" stroke-width="1" fill="none"/><line x1="3" y1="14" x2="19" y2="14" stroke="rgba(30,20,10,0.2)" stroke-width="1"/></svg>`,
+  coordinates: `<svg viewBox="0 0 22 22" fill="none"><rect x="4" y="3" width="14" height="16" rx="1" stroke="rgba(232,218,185,0.9)" stroke-width="1.3" fill="rgba(232,218,185,0.06)"/><line x1="7" y1="7" x2="15" y2="7" stroke="rgba(232,218,185,0.6)" stroke-width="1"/><line x1="7" y1="10" x2="15" y2="10" stroke="rgba(232,218,185,0.6)" stroke-width="1"/><line x1="7" y1="13" x2="12" y2="13" stroke="rgba(232,218,185,0.6)" stroke-width="1"/></svg>`,
+  default: `<svg viewBox="0 0 22 22" fill="none"><rect x="4" y="4" width="14" height="14" rx="2" stroke="rgba(232,218,185,0.8)" stroke-width="1.3" fill="rgba(232,218,185,0.05)"/></svg>`
 };
 
 function renderItemIcon(item) { return ITEM_ICONS[item.id] || ITEM_ICONS["default"]; }
