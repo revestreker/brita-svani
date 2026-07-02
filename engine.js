@@ -91,7 +91,7 @@ function showTitleMessage(msg) {
   setTimeout(() => el.remove(), 2000);
 }
 
-function loadScene(sceneId) {
+function loadScene(sceneId, onReady) {
   const scene = SCENES[sceneId];
   if (!scene) { console.error("Scene not found:", sceneId); return; }
 
@@ -101,14 +101,10 @@ function loadScene(sceneId) {
 
   const bg = document.getElementById("background");
   STATE.panScene = scene.type === "pan";
+  const prevSrc = bg.src;
 
-  if (STATE.panScene) {
-    bg.style.width = "auto";
-    bg.style.height = "100%";
-    bg.style.objectFit = "unset";
-    bg.style.maxWidth = "none";
-    bg.style.transform = "";
-    bg.onload = () => {
+  const finishLoad = () => {
+    if (STATE.panScene) {
       // Recalculate using real image dimensions AFTER load
       const maxPan = getMaxPan();
       const startFrac = scene.panStart !== undefined ? scene.panStart : 0;
@@ -116,14 +112,24 @@ function loadScene(sceneId) {
       STATE.panTarget = STATE.panX;
       renderHotspots(scene); // Must run after load so getScaledImageWidth() is accurate
       applyPan();
-    };
+    }
+    if (onReady) onReady();
+  };
+
+  if (STATE.panScene) {
+    bg.style.width = "auto";
+    bg.style.height = "100%";
+    bg.style.objectFit = "unset";
+    bg.style.maxWidth = "none";
+    bg.style.transform = "";
+    bg.onload = finishLoad;
   } else {
     bg.style.width = "100%";
     bg.style.height = "100%";
     bg.style.objectFit = "cover";
     bg.style.maxWidth = "";
     bg.style.transform = "";
-    bg.onload = null;
+    bg.onload = finishLoad;
     STATE.panX = 0;
     STATE.panTarget = 0;
     // Reset layers
@@ -135,6 +141,9 @@ function loadScene(sceneId) {
   }
 
   bg.src = scene.background;
+  // If the new background is the same image already loaded (e.g. re-entering
+  // a scene that shares an image), the browser won't fire a fresh load event.
+  if (bg.src === prevSrc && bg.complete && bg.naturalWidth > 0) finishLoad();
   document.getElementById("scene-label").textContent = scene.name;
 
   // Pan hint
@@ -346,7 +355,7 @@ function triggerHotspot(hs) {
 
   } else if (action.type === "scene") {
     closeInventory(); closeLightbox();
-    fadeOut(() => { loadScene(action.target); fadeIn(); });
+    fadeOut(() => { loadScene(action.target, fadeIn); });
 
   } else if (action.type === "lightbox") {
     openLightbox(action.image, action.caption);
@@ -385,7 +394,7 @@ function triggerHotspot(hs) {
 
 function handleThen(then) {
   if (then.type === "scene") {
-    fadeOut(() => { loadScene(then.target); fadeIn(); });
+    fadeOut(() => { loadScene(then.target, fadeIn); });
   } else if (then.type === "pickup") {
     if (!STATE.inventory.find(i => i.id === then.item.id)) {
       STATE.inventory.push(then.item);
@@ -501,7 +510,7 @@ function closeChoice() {
 
 function makeChoice(branch) {
   closeChoice();
-  fadeOut(() => { loadScene("ending_" + branch); fadeIn(); });
+  fadeOut(() => { loadScene("ending_" + branch, fadeIn); });
 }
 
 // ─── END CARD ────────────────────────────────────────────────────────────────
